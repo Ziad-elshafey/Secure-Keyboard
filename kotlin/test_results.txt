@@ -1,0 +1,83 @@
+KOTLIN COMPRESSION ALGORITHM - TEST RESULTS
+Generated: 2026-01-28T22:22:27.501559800
+================================================================================
+
+INDIVIDUAL TEST RESULTS:
+--------------------------------------------------------------------------------
+Test 1: Very Short (2 words)
+  Original size:     12 bytes
+  Compressed size:   20 bytes
+  Compression ratio: 167%
+  Status:            SUCCESS
+
+Test 2: Short (4 words)
+  Original size:     20 bytes
+  Compressed size:   10 bytes
+  Compression ratio: 50%
+  Status:            SUCCESS
+
+Test 3: Medium (13 words)
+  Original size:     74 bytes
+  Compressed size:   16 bytes
+  Compression ratio: 22%
+  Status:            SUCCESS
+
+Test 4: Medium (16 words)
+  Original size:     66 bytes
+  Compressed size:   19 bytes
+  Compression ratio: 29%
+  Status:            SUCCESS
+
+Test 5: Long (30 words)
+  Original size:     172 bytes
+  Compressed size:   67 bytes
+  Compression ratio: 39%
+  Status:            SUCCESS
+
+Test 6: Very Long (60+ words)
+  Original size:     440 bytes
+  Compressed size:   302 bytes
+  Compression ratio: 69%
+  Status:            SUCCESS
+
+Test 7: Repetitive (10 words)
+  Original size:     40 bytes
+  Compressed size:   12 bytes
+  Compression ratio: 30%
+  Status:            SUCCESS
+
+Test 8: Repetitive with variety
+  Original size:     75 bytes
+  Compressed size:   43 bytes
+  Compression ratio: 57%
+  Status:            SUCCESS
+
+Test 9: With unknown words
+  Original size:     38 bytes
+  Compressed size:   45 bytes
+  Compression ratio: 118%
+  Status:            SUCCESS
+
+Test 10: Mixed punctuation
+  Original size:     68 bytes
+  Compressed size:   80 bytes
+  Compression ratio: 118%
+  Status:            SUCCESS
+
+Test 11: With numbers
+  Original size:     57 bytes
+  Compressed size:   58 bytes
+  Compression ratio: 102%
+  Status:            FAILED
+
+================================================================================
+SUMMARY STATISTICS
+================================================================================
+Total tests:      11
+Successful:       10
+Failed:           1
+
+Average compression ratio: 70%
+Total original size:       1005 bytes
+Total compressed size:     614 bytes
+Overall space saved:       391 bytes

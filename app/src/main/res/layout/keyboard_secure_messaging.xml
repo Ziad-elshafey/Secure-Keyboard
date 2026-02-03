@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@color/white"
+    android:padding="8dp">
+
+    <!-- Toolbar -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="@color/white"
+        android:padding="8dp">
+
+        <ImageButton
+            android:id="@+id/btn_back"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_keyboard_arrow_left"
+            android:contentDescription="Back" />
+
+        <TextView
+            android:id="@+id/tv_toolbar_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Secure Messaging"
+            android:textSize="18sp"
+            android:textColor="@color/tv_text"
+            android:textStyle="bold"
+            android:layout_marginStart="8dp" />
+    </LinearLayout>
+
+    <!-- Contact Setup Button -->
+    <Button
+        android:id="@+id/btn_setup_contact"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Setup Contact"
+        android:textAllCaps="false"
+        android:layout_marginTop="8dp" />
+
+    <!-- Contact Info -->
+    <TextView
+        android:id="@+id/tv_contact_info"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="No contact setup"
+        android:textSize="12sp"
+        android:textColor="@color/tv_text"
+        android:padding="4dp" />
+
+    <!-- Action Buttons -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="8dp">
+
+        <Button
+            android:id="@+id/btn_encrypt_compress"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="🔒 Encrypt"
+            android:textAllCaps="false"
+            android:enabled="false"
+            android:layout_marginEnd="4dp" />
+
+        <Button
+            android:id="@+id/btn_decrypt_decompress"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="🔓 Decrypt"
+            android:textAllCaps="false"
+            android:enabled="false"
+            android:layout_marginStart="4dp" />
+    </LinearLayout>
+
+    <!-- Status Display -->
+    <TextView
+        android:id="@+id/tv_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Setup a contact to begin"
+        android:textSize="14sp"
+        android:textColor="@color/tv_text"
+        android:padding="8dp"
+        android:layout_marginTop="8dp"
+        android:background="@color/white" />
+
+    <!-- Stats Display -->
+    <TextView
+        android:id="@+id/tv_stats"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="12sp"
+        android:textColor="@color/tv_text"
+        android:padding="8dp"
+        android:fontFamily="monospace" />
+
+    <!-- Decrypted Text Preview -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Decrypted Message:"
+        android:textSize="12sp"
+        android:textColor="@color/tv_text"
+        android:paddingStart="8dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="8dp" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="120dp"
+        android:background="@color/white"
+        android:padding="8dp">
+
+        <TextView
+            android:id="@+id/tv_decrypted_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Decrypted message will appear here..."
+            android:textSize="14sp"
+            android:textColor="@color/tv_text" />
+    </ScrollView>
+
+</LinearLayout>

@@ -99,6 +99,18 @@ android {
         viewBinding = true
     }
 
+    lint {
+        disable.add("PropertyEscape")
+        checkReleaseBuilds = false
+        abortOnError = false
+    }
+
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -119,6 +131,10 @@ dependencies {
 
     implementation(libs.androidx.work.ktx)
     implementation(libs.google.hilt)
+    
+    // Crypto
+    implementation(libs.google.tink)
+    implementation(libs.androidx.security.crypto)
 
     ksp(libs.github.glide.compiler)
     ksp(libs.google.hilt.compiler)

@@ -194,6 +194,13 @@
             android:text="Do Some Test"
             app:cornerRadius="@dimen/frogo_dimen_16dp" />
 
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_compression_test"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Compression Test"
+            app:cornerRadius="@dimen/frogo_dimen_16dp" />
+
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

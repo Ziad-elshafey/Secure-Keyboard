@@ -22,6 +22,10 @@
             android:exported="false" />
 
         <activity
+            android:name=".ui.test.CompressionTestActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".ui.autotext.AutoTextActivity"
             android:exported="false" />
 

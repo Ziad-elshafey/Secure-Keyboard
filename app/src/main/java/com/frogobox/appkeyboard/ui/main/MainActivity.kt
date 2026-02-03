@@ -9,6 +9,7 @@ import androidx.activity.viewModels
 import com.frogobox.appkeyboard.databinding.ActivityMainBinding
 import com.frogobox.appkeyboard.ui.autotext.AutoTextActivity
 import com.frogobox.appkeyboard.ui.language.KeyboardLanguageActivity
+import com.frogobox.appkeyboard.ui.test.CompressionTestActivity
 import com.frogobox.appkeyboard.ui.test.TestActivity
 import com.frogobox.appkeyboard.ui.theme.ThemeActivity
 import com.frogobox.appkeyboard.ui.toggle.ToggleActivity
@@ -85,6 +86,10 @@ class MainActivity : BaseMainActivity<ActivityMainBinding>() {
 
             btnDoSomeTest.setOnClickListener {
                 startActivityExt<TestActivity>()
+            }
+
+            btnCompressionTest.setOnClickListener {
+                startActivityExt<CompressionTestActivity>()
             }
 
             btnAutoText.setOnClickListener {

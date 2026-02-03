@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/container_toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <ImageView
+                android:id="@+id/toolbar_back"
+                android:layout_width="@dimen/frogo_dimen_24dp"
+                android:layout_height="@dimen/frogo_dimen_24dp"
+                android:layout_margin="@dimen/frogo_dimen_16dp"
+                android:src="@drawable/ic_keyboard_arrow_left"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:tint="@color/tv_text" />
+
+            <TextView
+                android:id="@+id/tv_toolbar_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_margin="@dimen/frogo_dimen_16dp"
+                android:text="Text Compression"
+                android:textColor="@color/tv_text"
+                android:textStyle="bold"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toEndOf="@id/toolbar_back"
+                app:layout_constraintTop_toTopOf="parent" />
+
+            <Button
+                android:id="@+id/btn_compress_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_margin="@dimen/frogo_dimen_8dp"
+                android:text="Compress"
+                android:paddingHorizontal="@dimen/frogo_dimen_12dp"
+                android:paddingVertical="@dimen/frogo_dimen_8dp"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
+
+            <Button
+                android:id="@+id/btn_apply_compressed"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_margin="@dimen/frogo_dimen_8dp"
+                android:text="Apply"
+                android:paddingHorizontal="@dimen/frogo_dimen_12dp"
+                android:paddingVertical="@dimen/frogo_dimen_8dp"
+                android:enabled="false"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toStartOf="@id/btn_compress_text"
+                app:layout_constraintTop_toTopOf="parent" />
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="@dimen/frogo_dimen_16dp">
+
+                <TextView
+                    android:id="@+id/tv_compression_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Click Compress button to compress the current text"
+                    android:textColor="@color/tv_text"
+                    android:textSize="14sp"
+                    android:gravity="center" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Statistics:"
+                    android:textColor="@color/tv_text"
+                    android:textStyle="bold"
+                    android:textSize="16sp"
+                    android:layout_marginTop="@dimen/frogo_dimen_16dp" />
+
+                <TextView
+                    android:id="@+id/tv_compression_stats"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text=""
+                    android:textColor="@color/tv_text"
+                    android:textSize="12sp"
+                    android:layout_marginTop="@dimen/frogo_dimen_8dp"
+                    android:textIsSelectable="true" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Decompressed Text:"
+                    android:textColor="@color/tv_text"
+                    android:textStyle="bold"
+                    android:textSize="16sp"
+                    android:layout_marginTop="@dimen/frogo_dimen_16dp" />
+
+                <TextView
+                    android:id="@+id/tv_decompressed_text"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text=""
+                    android:textColor="@color/tv_text"
+                    android:textSize="12sp"
+                    android:layout_marginTop="@dimen/frogo_dimen_8dp"
+                    android:textIsSelectable="true"
+                    android:padding="@dimen/frogo_dimen_8dp"
+                    android:background="@android:drawable/edit_text" />
+
+            </LinearLayout>
+
+        </ScrollView>
+
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

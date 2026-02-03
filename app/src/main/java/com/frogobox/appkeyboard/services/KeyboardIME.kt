@@ -93,6 +93,7 @@ class KeyboardIME : BaseKeyboardIME<KeyboardImeBinding>() {
             keyboardForm.setInputConnection(currentInputConnection)
             keyboardEmoji.setInputConnection(currentInputConnection)
             keyboardTemplateText.setInputConnection(currentInputConnection)
+            keyboardCompression.setInputConnection(currentInputConnection)
         }
     }
 
@@ -117,6 +118,8 @@ class KeyboardIME : BaseKeyboardIME<KeyboardImeBinding>() {
             keyboardWebview.gone()
             keyboardForm.gone()
             keyboardEmoji.gone()
+            keyboardCompression.gone()
+            keyboardSecureMessaging.gone()
             keyboardEmoji.binding.emojiList.scrollToPosition(0)
         }
     }
@@ -175,6 +178,16 @@ class KeyboardIME : BaseKeyboardIME<KeyboardImeBinding>() {
 
             keyboardTemplateText.binding.toolbarBack.setOnClickListener {
                 keyboardTemplateText.gone()
+                showMainKeyboard()
+            }
+
+            keyboardCompression.binding.toolbarBack.setOnClickListener {
+                keyboardCompression.gone()
+                showMainKeyboard()
+            }
+
+            keyboardSecureMessaging.binding.btnBack.setOnClickListener {
+                keyboardSecureMessaging.gone()
                 showMainKeyboard()
             }
 
@@ -305,6 +318,17 @@ class KeyboardIME : BaseKeyboardIME<KeyboardImeBinding>() {
                                     hideMainKeyboard()
                                     keyboardTemplateText.setupTemplateTextType(KeyboardFeatureType.TEMPLATE_TEXT_GREETING)
                                     keyboardTemplateText.visible()
+                                }
+
+                                KeyboardFeatureType.COMPRESSION -> {
+                                    hideMainKeyboard()
+                                    keyboardCompression.visible()
+                                }
+
+                                KeyboardFeatureType.SECURE_MESSAGING -> {
+                                    hideMainKeyboard()
+                                    keyboardSecureMessaging.visible()
+                                    keyboardSecureMessaging.setInputConnection(currentInputConnection)
                                 }
 
                                 KeyboardFeatureType.CHANGE_KEYBOARD -> {

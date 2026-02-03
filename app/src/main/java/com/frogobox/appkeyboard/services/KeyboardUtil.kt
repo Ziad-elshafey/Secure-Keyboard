@@ -39,6 +39,8 @@ class KeyboardUtil @Inject constructor(
             KeyboardFeatureType.MOVIE.mapToModel(),
             KeyboardFeatureType.WEB.mapToModel(),
             KeyboardFeatureType.FORM.mapToModel(),
+            KeyboardFeatureType.COMPRESSION.mapToModel(),
+            KeyboardFeatureType.SECURE_MESSAGING.mapToModel(),
             KeyboardFeatureType.CHANGE_KEYBOARD.mapToModel(),
             KeyboardFeatureType.SETTING.mapToModel(),
         ).sortedBy { getStateToggle(it.id) }
