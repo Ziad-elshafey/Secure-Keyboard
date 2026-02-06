@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@color/white"
+    android:padding="8dp">
+
+    <!-- Toolbar -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="@color/white"
+        android:padding="8dp">
+
+        <ImageButton
+            android:id="@+id/btn_back"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_keyboard_arrow_left"
+            android:contentDescription="Back" />
+
+        <TextView
+            android:id="@+id/tv_toolbar_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Backend Demo"
+            android:textSize="18sp"
+            android:textColor="@color/tv_text"
+            android:textStyle="bold"
+            android:layout_marginStart="8dp" />
+    </LinearLayout>
+
+    <!-- Demo Button -->
+    <Button
+        android:id="@+id/btn_demo_send"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="🚀 Demo: Compress → Encrypt → Upload"
+        android:textAllCaps="false"
+        android:layout_marginTop="8dp"
+        android:backgroundTint="#4CAF50" />
+
+    <!-- Status Display -->
+    <TextView
+        android:id="@+id/tv_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Type a message and press the demo button"
+        android:textSize="14sp"
+        android:textColor="@color/tv_text"
+        android:padding="8dp"
+        android:layout_marginTop="8dp"
+        android:background="#f5f5f5" />
+
+    <!-- Stats Display -->
+    <TextView
+        android:id="@+id/tv_stats"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textSize="12sp"
+        android:textColor="@color/tv_text"
+        android:padding="8dp"
+        android:layout_marginTop="4dp"
+        android:background="#f5f5f5"
+        android:fontFamily="monospace" />
+
+    <!-- Decoy Text Preview -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Decoy Text Preview:"
+        android:textSize="14sp"
+        android:textColor="@color/tv_text"
+        android:textStyle="bold"
+        android:layout_marginTop="8dp" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="100dp"
+        android:layout_marginTop="4dp"
+        android:background="#f5f5f5"
+        android:padding="8dp">
+
+        <TextView
+            android:id="@+id/tv_decoy_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="14sp"
+            android:textColor="@color/tv_text" />
+    </ScrollView>
+
+</LinearLayout>

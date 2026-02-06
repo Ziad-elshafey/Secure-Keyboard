@@ -201,6 +201,13 @@
             android:text="Compression Test"
             app:cornerRadius="@dimen/frogo_dimen_16dp" />
 
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_secure_messaging"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="🔐 Secure Messaging"
+            app:cornerRadius="@dimen/frogo_dimen_16dp" />
+
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

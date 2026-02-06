@@ -120,6 +120,7 @@ class KeyboardIME : BaseKeyboardIME<KeyboardImeBinding>() {
             keyboardEmoji.gone()
             keyboardCompression.gone()
             keyboardSecureMessaging.gone()
+            keyboardDemo.gone()
             keyboardEmoji.binding.emojiList.scrollToPosition(0)
         }
     }
@@ -188,6 +189,11 @@ class KeyboardIME : BaseKeyboardIME<KeyboardImeBinding>() {
 
             keyboardSecureMessaging.binding.btnBack.setOnClickListener {
                 keyboardSecureMessaging.gone()
+                showMainKeyboard()
+            }
+
+            keyboardDemo.binding.btnBack.setOnClickListener {
+                keyboardDemo.gone()
                 showMainKeyboard()
             }
 
@@ -329,6 +335,12 @@ class KeyboardIME : BaseKeyboardIME<KeyboardImeBinding>() {
                                     hideMainKeyboard()
                                     keyboardSecureMessaging.visible()
                                     keyboardSecureMessaging.setInputConnection(currentInputConnection)
+                                }
+
+                                KeyboardFeatureType.DEMO -> {
+                                    hideMainKeyboard()
+                                    keyboardDemo.visible()
+                                    keyboardDemo.setInputConnection(currentInputConnection)
                                 }
 
                                 KeyboardFeatureType.CHANGE_KEYBOARD -> {

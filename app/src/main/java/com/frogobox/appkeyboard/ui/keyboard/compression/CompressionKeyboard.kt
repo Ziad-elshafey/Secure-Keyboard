@@ -66,6 +66,7 @@ class CompressionKeyboard(
                 val compressed = CompressionService.compress(currentText)
                 val ratio = CompressionService.getCompressionRatio(originalBytes.size, compressed.size)
                 val savings = CompressionService.getSavingsPercent(originalBytes.size, compressed.size)
+                val bitsPerWord = CompressionService.getBitsPerWord(currentText, compressed.size)
                 val decompressed = CompressionService.decompress(compressed)
                 val verified = decompressed == currentText
 
@@ -75,8 +76,21 @@ class CompressionKeyboard(
                     Compressed size: ${compressed.size} bytes
                     Compression ratio: ${String.format("%.2f", ratio)}x
                     Space saved: ${String.format("%.1f", savings)}%
+                    Bits per word: ${String.format("%.2f", bitsPerWord)} bits/word
                     Verified: ${if (verified) "[OK]" else "[FAIL]"}
                     """.trimIndent()
+
+                    // Convert compressed data to binary (0s and 1s)
+                    val compressedBinary = compressed.joinToString("") { byte ->
+                        (byte.toInt() and 0xFF).toString(2).padStart(8, '0')
+                    }
+                    
+                    // Show truncated binary for display
+                    val binaryDisplay = if (compressedBinary.length > 256) {
+                        compressedBinary.take(256) + "\n... (truncated)"
+                    } else {
+                        compressedBinary
+                    }
 
                     lastCompressed = compressed
                     lastOriginalText = currentText
@@ -84,7 +98,7 @@ class CompressionKeyboard(
                     binding.apply {
                         tvCompressionStatus.text = "[OK] Compression done - Click 'Apply' to replace text"
                         tvCompressionStats.text = stats
-                        tvDecompressedText.text = decompressed
+                        tvDecompressedText.text = "📦 Compressed Data (Binary):\n\n$binaryDisplay\n\n✅ Decompressed:\n$decompressed"
                         btnApplyCompressed.isEnabled = true
                     }
                 }
@@ -109,11 +123,13 @@ class CompressionKeyboard(
             // Delete the original text
             inputConnection.deleteSurroundingText(lastOriginalText.length, 0)
             
-            // Encode compressed binary data to Base64 for safe text transmission
-            val compressedBase64 = Base64.encodeToString(lastCompressed, Base64.DEFAULT)
-            inputConnection.commitText(compressedBase64, 1)
+            // Convert compressed data to binary (0s and 1s)
+            val compressedBinary = lastCompressed!!.joinToString("") { byte ->
+                (byte.toInt() and 0xFF).toString(2).padStart(8, '0')
+            }
+            inputConnection.commitText(compressedBinary, 1)
             
-            binding.tvCompressionStatus.text = "[OK] Compressed text (Base64) applied to input field!"
+            binding.tvCompressionStatus.text = "[OK] Compressed text (Binary) applied to input field!"
         } catch (e: Exception) {
             binding.tvCompressionStatus.text = "Error: ${e.message}"
         }

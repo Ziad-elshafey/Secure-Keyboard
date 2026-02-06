@@ -1,25 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:background="@color/white"
-    android:padding="8dp">
+    android:padding="4dp">
 
-    <!-- Toolbar -->
+    <!-- ═══════════════ Toolbar ═══════════════ -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="48dp"
+        android:layout_height="36dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:background="@color/white"
-        android:padding="8dp">
+        android:paddingHorizontal="4dp">
 
         <ImageButton
             android:id="@+id/btn_back"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_keyboard_arrow_left"
             android:contentDescription="Back" />
@@ -30,105 +28,310 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="Secure Messaging"
-            android:textSize="18sp"
+            android:textSize="14sp"
             android:textColor="@color/tv_text"
             android:textStyle="bold"
-            android:layout_marginStart="8dp" />
-    </LinearLayout>
-
-    <!-- Contact Setup Button -->
-    <Button
-        android:id="@+id/btn_setup_contact"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Setup Contact"
-        android:textAllCaps="false"
-        android:layout_marginTop="8dp" />
-
-    <!-- Contact Info -->
-    <TextView
-        android:id="@+id/tv_contact_info"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="No contact setup"
-        android:textSize="12sp"
-        android:textColor="@color/tv_text"
-        android:padding="4dp" />
-
-    <!-- Action Buttons -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginTop="8dp">
-
-        <Button
-            android:id="@+id/btn_encrypt_compress"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="🔒 Encrypt"
-            android:textAllCaps="false"
-            android:enabled="false"
-            android:layout_marginEnd="4dp" />
-
-        <Button
-            android:id="@+id/btn_decrypt_decompress"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="🔓 Decrypt"
-            android:textAllCaps="false"
-            android:enabled="false"
             android:layout_marginStart="4dp" />
-    </LinearLayout>
 
-    <!-- Status Display -->
-    <TextView
-        android:id="@+id/tv_status"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Setup a contact to begin"
-        android:textSize="14sp"
-        android:textColor="@color/tv_text"
-        android:padding="8dp"
-        android:layout_marginTop="8dp"
-        android:background="@color/white" />
-
-    <!-- Stats Display -->
-    <TextView
-        android:id="@+id/tv_stats"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textSize="12sp"
-        android:textColor="@color/tv_text"
-        android:padding="8dp"
-        android:fontFamily="monospace" />
-
-    <!-- Decrypted Text Preview -->
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Decrypted Message:"
-        android:textSize="12sp"
-        android:textColor="@color/tv_text"
-        android:paddingStart="8dp"
-        android:paddingTop="8dp"
-        android:paddingEnd="8dp" />
-
-    <ScrollView
-        android:layout_width="match_parent"
-        android:layout_height="120dp"
-        android:background="@color/white"
-        android:padding="8dp">
+        <!-- Nav tabs -->
+        <TextView
+            android:id="@+id/btn_compose"
+            android:layout_width="wrap_content"
+            android:layout_height="28dp"
+            android:gravity="center"
+            android:paddingHorizontal="10dp"
+            android:text="✏️"
+            android:textSize="14sp"
+            android:background="?attr/selectableItemBackground"
+            android:visibility="gone" />
 
         <TextView
-            android:id="@+id/tv_decrypted_text"
+            android:id="@+id/btn_inbox"
+            android:layout_width="wrap_content"
+            android:layout_height="28dp"
+            android:gravity="center"
+            android:paddingHorizontal="10dp"
+            android:text="📥"
+            android:textSize="14sp"
+            android:background="?attr/selectableItemBackground"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/btn_logout"
+            android:layout_width="wrap_content"
+            android:layout_height="28dp"
+            android:gravity="center"
+            android:paddingHorizontal="6dp"
+            android:text="⏏"
+            android:textSize="12sp"
+            android:background="?attr/selectableItemBackground"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <!-- Thin divider -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#E0E0E0" />
+
+    <!-- ═══════════════ State Flipper ═══════════════ -->
+    <ViewFlipper
+        android:id="@+id/view_flipper"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <!-- ─── State 0: NOT LOGGED IN ─── -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Decrypted message will appear here..."
-            android:textSize="14sp"
-            android:textColor="@color/tv_text" />
-    </ScrollView>
+            android:orientation="vertical"
+            android:padding="12dp"
+            android:gravity="center">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="🔐 Not logged in"
+                android:textSize="14sp"
+                android:textColor="@color/tv_text"
+                android:textStyle="bold"
+                android:gravity="center" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Open the app → 🔑 Secure Messaging to login or register first."
+                android:textSize="12sp"
+                android:textColor="#757575"
+                android:gravity="center"
+                android:paddingTop="4dp" />
+        </LinearLayout>
+
+        <!-- ─── State 1: COMPOSE ─── -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="6dp">
+
+            <!-- Instruction -->
+            <TextView
+                android:id="@+id/tv_compose_instructions"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Type a username in the text field, then tap Search."
+                android:textSize="11sp"
+                android:textColor="#757575"
+                android:paddingBottom="4dp" />
+
+            <!-- Search button -->
+            <Button
+                android:id="@+id/btn_search"
+                android:layout_width="match_parent"
+                android:layout_height="34dp"
+                android:text="🔍 Search user (reads text field)"
+                android:textAllCaps="false"
+                android:textSize="12sp" />
+
+            <!-- Search results / conversation create area -->
+            <TextView
+                android:id="@+id/tv_search_result"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:textColor="@color/tv_text"
+                android:paddingTop="4dp"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/btn_start_conversation"
+                android:layout_width="match_parent"
+                android:layout_height="32dp"
+                android:text="Start Conversation"
+                android:textAllCaps="false"
+                android:textSize="11sp"
+                android:visibility="gone"
+                android:layout_marginTop="2dp" />
+
+            <!-- Message compose area (visible after conversation is selected) -->
+            <LinearLayout
+                android:id="@+id/compose_area"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone"
+                android:layout_marginTop="4dp">
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="#E0E0E0" />
+
+                <TextView
+                    android:id="@+id/tv_compose_label"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Messaging: ..."
+                    android:textSize="12sp"
+                    android:textColor="@color/tv_text"
+                    android:textStyle="bold"
+                    android:paddingTop="4dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Clear the text field, type your message, then tap Send."
+                    android:textSize="10sp"
+                    android:textColor="#757575"
+                    android:paddingBottom="2dp" />
+
+                <Button
+                    android:id="@+id/btn_send"
+                    android:layout_width="match_parent"
+                    android:layout_height="34dp"
+                    android:text="🔒 Encrypt + Send"
+                    android:textAllCaps="false"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/tv_send_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="11sp"
+                    android:textColor="@color/tv_text"
+                    android:paddingTop="2dp" />
+
+                <!-- Obfuscated output preview -->
+                <ScrollView
+                    android:id="@+id/scroll_obfuscated"
+                    android:layout_width="match_parent"
+                    android:layout_height="60dp"
+                    android:visibility="gone"
+                    android:layout_marginTop="2dp"
+                    android:background="#F5F5F5"
+                    android:padding="4dp">
+
+                    <TextView
+                        android:id="@+id/tv_obfuscated_preview"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textSize="11sp"
+                        android:textColor="@color/tv_text"
+                        android:fontFamily="monospace" />
+                </ScrollView>
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- ─── State 2: INBOX ─── -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="6dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingBottom="2dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="📥 Inbox"
+                    android:textSize="13sp"
+                    android:textColor="@color/tv_text"
+                    android:textStyle="bold" />
+
+                <Button
+                    android:id="@+id/btn_refresh_inbox"
+                    android:layout_width="wrap_content"
+                    android:layout_height="28dp"
+                    android:text="↻ Refresh"
+                    android:textAllCaps="false"
+                    android:textSize="10sp"
+                    android:minWidth="56dp" />
+            </LinearLayout>
+
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="160dp">
+
+                <LinearLayout
+                    android:id="@+id/inbox_container"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+            </ScrollView>
+
+            <TextView
+                android:id="@+id/tv_inbox_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="11sp"
+                android:textColor="@color/tv_text"
+                android:paddingTop="2dp" />
+        </LinearLayout>
+
+        <!-- ─── State 3: DECRYPT RESULT ─── -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="6dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="🔓 Decrypted Message"
+                android:textSize="13sp"
+                android:textColor="@color/tv_text"
+                android:textStyle="bold"
+                android:paddingBottom="2dp" />
+
+            <TextView
+                android:id="@+id/tv_decrypt_from"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="11sp"
+                android:textColor="#757575"
+                android:paddingBottom="2dp" />
+
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="100dp"
+                android:background="#F5F5F5"
+                android:padding="6dp">
+
+                <TextView
+                    android:id="@+id/tv_decrypted_text"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="13sp"
+                    android:textColor="@color/tv_text"
+                    android:hint="Decrypting..." />
+            </ScrollView>
+
+            <Button
+                android:id="@+id/btn_back_to_inbox"
+                android:layout_width="match_parent"
+                android:layout_height="32dp"
+                android:text="← Back to Inbox"
+                android:textAllCaps="false"
+                android:textSize="11sp"
+                android:layout_marginTop="4dp" />
+
+            <TextView
+                android:id="@+id/tv_decrypt_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="11sp"
+                android:textColor="@color/tv_text"
+                android:paddingTop="2dp" />
+        </LinearLayout>
+
+    </ViewFlipper>
 
 </LinearLayout>
