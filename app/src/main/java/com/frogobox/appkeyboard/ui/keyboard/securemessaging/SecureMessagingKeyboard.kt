@@ -1,17 +1,12 @@
 package com.frogobox.appkeyboard.ui.keyboard.securemessaging
 
 import android.content.Context
-import android.graphics.Color
-import android.graphics.Typeface
 import android.util.AttributeSet
-import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.inputmethod.ExtractedTextRequest
 import android.widget.LinearLayout
-import android.widget.TextView
 import com.frogobox.appkeyboard.databinding.KeyboardSecureMessagingBinding
-import com.frogobox.appkeyboard.data.repository.InboxMessage
 import com.frogobox.appkeyboard.data.repository.SecureMessagingRepository
 import com.frogobox.appkeyboard.di.SecureKeyboardEntryPoint
 import com.frogobox.libkeyboard.common.core.BaseKeyboard
@@ -22,18 +17,19 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Secure Messaging Keyboard — Full E2EE + Steganographic Obfuscation
+ * Secure Messaging Keyboard — Full E2EE + Steganographic Obfuscation (v3.0)
  *
  * Auth (login / register) is handled in the main app (SecureAuthActivity).
- * This panel only handles compose / inbox / decrypt when already logged in.
+ * This panel handles compose / decrypt when already logged in.
  *
- * Text input (search query, message text) is read from the host app's
- * text field via InputConnection — no EditTexts inside the IME panel.
+ * The panel sits ABOVE the QWERTY keys (form-pattern layout).
+ * Text input uses embedded EditText fields so the user can type
+ * without leaving the secure messaging panel.
  *
  * States (ViewFlipper indices):
  *   0 = NOT_LOGGED_IN  (instruction to open the app)
- *   1 = COMPOSE        (search user → create conversation → send encrypted)
- *   2 = INBOX          (list of obfuscated messages)
+ *   1 = COMPOSE        (search user → create session → send encrypted)
+ *   2 = DECRYPT        (paste encrypted text → deobfuscate → decrypt)
  *   3 = DECRYPT RESULT (revealed + decrypted plaintext)
  */
 class SecureMessagingKeyboard(
@@ -60,13 +56,10 @@ class SecureMessagingKeyboard(
             return _repo!!
         }
 
-    // Conversation state for compose flow
+    // Session state for compose flow
     private var selectedRecipientId: String? = null
     private var selectedRecipientName: String? = null
-    private var activeConversationId: String? = null
-
-    // Cached inbox for decrypt flow
-    private var cachedInbox: List<InboxMessage> = emptyList()
+    private var activeSessionId: String? = null
 
     // Guard against double-init
     private var uiInitialized = false
@@ -89,21 +82,31 @@ class SecureMessagingKeyboard(
         if (uiInitialized) return
         uiInitialized = true
 
+        setupComposeState()
+        setupDecryptInputState()
+        setupDecryptResultState()
+        refreshAuthState()
+    }
+
+    override fun onVisibilityChanged(changedView: View, visibility: Int) {
+        super.onVisibilityChanged(changedView, visibility)
+        // Refresh auth state when panel becomes visible (e.g. after user logs in elsewhere)
+        if (changedView == this && visibility == View.VISIBLE && uiInitialized) {
+            refreshAuthState()
+        }
+    }
+
+    /** Re-check login state and update UI. Call when panel becomes visible after auth may have changed. */
+    private fun refreshAuthState() {
         try {
-            // Decide initial state
             if (repo.isLoggedIn()) {
                 showState(STATE_COMPOSE)
             } else {
                 showState(STATE_NOT_LOGGED_IN)
             }
         } catch (e: Exception) {
-            // Hilt not ready — default to not-logged-in
             showState(STATE_NOT_LOGGED_IN)
         }
-
-        setupComposeState()
-        setupInboxState()
-        setupDecryptState()
     }
 
     // ═════════════════════════════════════════════════════════
@@ -132,7 +135,7 @@ class SecureMessagingKeyboard(
         binding.tvToolbarTitle.text = when (state) {
             STATE_NOT_LOGGED_IN -> "Secure Messaging"
             STATE_COMPOSE -> "✏️ $username"
-            STATE_INBOX -> "📥 $username"
+            STATE_INBOX -> "� Decrypt"
             STATE_DECRYPT -> "🔓 Decrypt"
             else -> "Secure Messaging"
         }
@@ -140,7 +143,6 @@ class SecureMessagingKeyboard(
         // Toolbar nav buttons
         binding.btnInbox.setOnClickListener {
             showState(STATE_INBOX)
-            refreshInbox()
         }
         binding.btnCompose.setOnClickListener { showState(STATE_COMPOSE) }
         binding.btnLogout.setOnClickListener {
@@ -160,18 +162,11 @@ class SecureMessagingKeyboard(
         binding.btnSend.setOnClickListener { sendMessage() }
     }
 
-    /** Read the current text from the host app's text field via InputConnection. */
-    private fun readHostTextField(): String {
-        return currentInputConnection?.let { ic ->
-            ic.getExtractedText(ExtractedTextRequest(), 0)?.text?.toString()?.trim() ?: ""
-        } ?: ""
-    }
-
     private fun searchUser() {
-        val query = readHostTextField()
+        val query = binding.etUsername.text.toString().trim()
         if (query.isEmpty()) {
             binding.tvSearchResult.visibility = View.VISIBLE
-            binding.tvSearchResult.text = "Type a username in the text field above first"
+            binding.tvSearchResult.text = "Type a username above first"
             return
         }
 
@@ -204,20 +199,21 @@ class SecureMessagingKeyboard(
 
     private fun startConversation() {
         val recipientId = selectedRecipientId ?: return
+        val recipientName = selectedRecipientName ?: return
         binding.btnStartConversation.isEnabled = false
-        binding.tvSearchResult.text = "⏳ Creating conversation..."
+        binding.tvSearchResult.text = "⏳ Creating session..."
 
         GlobalScope.launch(Dispatchers.IO) {
-            val result = repo.createConversation(recipientId)
+            val result = repo.createSession(recipientName, recipientId)
             withContext(Dispatchers.Main) {
                 binding.btnStartConversation.isEnabled = true
-                result.onSuccess { conv ->
-                    activeConversationId = conv.conversationId
+                result.onSuccess { sessionInfo ->
+                    activeSessionId = sessionInfo.sessionId
                     binding.composeArea.visibility = View.VISIBLE
                     binding.tvComposeLabel.text = "Messaging: $selectedRecipientName"
                     binding.tvSendStatus.text = ""
                     binding.scrollObfuscated.visibility = View.GONE
-                    binding.tvSearchResult.text = "✅ Conversation ready"
+                    binding.tvSearchResult.text = "✅ Session ready"
                     binding.btnStartConversation.visibility = View.GONE
                 }.onFailure { e ->
                     binding.tvSearchResult.text = "❌ ${simplifyError(e)}"
@@ -226,36 +222,46 @@ class SecureMessagingKeyboard(
         }
     }
 
+    /**
+     * Read plaintext from the HOST APP's text field, encrypt + obfuscate,
+     * then REPLACE the host field content with the obfuscated text.
+     */
     private fun sendMessage() {
-        val conversationId = activeConversationId ?: return
-        val recipientId = selectedRecipientId ?: return
+        val sessionId = activeSessionId ?: return
+        val ic = currentInputConnection
 
-        // Read plaintext from the host app's input field
-        val plaintext = readHostTextField()
+        if (ic == null) {
+            binding.tvSendStatus.text = "❌ No active text field — tap on a text field first"
+            return
+        }
+
+        // Read the entire content of the host app's text field
+        val extracted = ic.getExtractedText(ExtractedTextRequest(), 0)
+        val plaintext = extracted?.text?.toString()?.trim() ?: ""
 
         if (plaintext.isEmpty()) {
-            binding.tvSendStatus.text = "Type a message in the text field first"
+            binding.tvSendStatus.text = "Type your message in the text field above first"
             return
         }
 
         binding.btnSend.isEnabled = false
-        binding.tvSendStatus.text = "⏳ Encrypting & sending..."
+        binding.tvSendStatus.text = "⏳ Encrypting & obfuscating..."
 
         GlobalScope.launch(Dispatchers.IO) {
-            val result = repo.sendMessage(conversationId, recipientId, plaintext)
+            val result = repo.sendMessage(sessionId, selectedRecipientName ?: "", plaintext)
             withContext(Dispatchers.Main) {
                 binding.btnSend.isEnabled = true
                 result.onSuccess { sendResult ->
-                    // Replace input field text with obfuscated decoy
-                    currentInputConnection?.apply {
-                        deleteSurroundingText(plaintext.length, 0)
+                    // Clear the original plaintext and replace with obfuscated text
+                    ic.apply {
+                        performContextMenuAction(android.R.id.selectAll)
                         commitText(sendResult.obfuscatedText, 1)
                     }
 
-                    binding.tvSendStatus.text = "✅ Sent! Decoy text placed in input field."
+                    binding.tvSendStatus.text = "✅ Encrypted message placed in text field. Send it!"
                     binding.scrollObfuscated.visibility = View.VISIBLE
                     binding.tvObfuscatedPreview.text =
-                        "Decoy: \"${sendResult.obfuscatedText}\"\n\nMessage ID: ${sendResult.messageId.take(8)}..."
+                        "Decoy: \"${sendResult.obfuscatedText.take(80)}...\""
                 }.onFailure { e ->
                     binding.tvSendStatus.text = "❌ ${simplifyError(e)}"
                 }
@@ -266,38 +272,45 @@ class SecureMessagingKeyboard(
     private fun resetComposeState() {
         selectedRecipientId = null
         selectedRecipientName = null
-        activeConversationId = null
+        activeSessionId = null
     }
 
     // ═════════════════════════════════════════════════════════
-    //  State 2: INBOX
+    //  State 2: DECRYPT (was INBOX)
     // ═════════════════════════════════════════════════════════
 
-    private fun setupInboxState() {
-        binding.btnRefreshInbox.setOnClickListener { refreshInbox() }
+    private fun setupDecryptInputState() {
+        binding.btnRefreshInbox.setOnClickListener { decryptFromInput() }
+        binding.tvInboxStatus.text = "Enter sender's username, paste obfuscated text in the text field above, then tap Decrypt"
     }
 
-    private fun refreshInbox() {
-        binding.tvInboxStatus.text = "⏳ Loading..."
-        binding.inboxContainer.removeAllViews()
+    /**
+     * Read obfuscated text from the HOST APP's text field, decrypt using
+     * the sender username typed into et_sender_username.
+     */
+    private fun decryptFromInput() {
+        val senderUsername = binding.etSenderUsername.text.toString().trim()
+        if (senderUsername.isEmpty()) {
+            binding.tvInboxStatus.text = "Enter the sender's username first"
+            return
+        }
+
+        val obfuscatedText = binding.etEncryptedInput.text.toString().trim()
+        if (obfuscatedText.isEmpty()) {
+            binding.tvInboxStatus.text = "Paste the obfuscated text first"
+            return
+        }
+
+        binding.tvInboxStatus.text = "⏳ Decrypting..."
 
         GlobalScope.launch(Dispatchers.IO) {
-            val result = repo.getInbox()
+            val result = repo.decryptMessage(obfuscatedText, senderUsername)
             withContext(Dispatchers.Main) {
-                result.onSuccess { messages ->
-                    cachedInbox = messages
-                    binding.inboxContainer.removeAllViews()
-
-                    if (messages.isEmpty()) {
-                        binding.tvInboxStatus.text = "No messages yet"
-                        return@onSuccess
-                    }
-
-                    binding.tvInboxStatus.text = "${messages.size} message(s)"
-
-                    for (msg in messages) {
-                        binding.inboxContainer.addView(createMessageCard(msg))
-                    }
+                result.onSuccess { plaintext ->
+                    showState(STATE_DECRYPT)
+                    binding.tvDecryptFrom.text = "From: $senderUsername"
+                    binding.tvDecryptedText.text = plaintext
+                    binding.tvDecryptStatus.text = "✅ Decrypted successfully"
                 }.onFailure { e ->
                     binding.tvInboxStatus.text = "❌ ${simplifyError(e)}"
                 }
@@ -305,90 +318,14 @@ class SecureMessagingKeyboard(
         }
     }
 
-    /**
-     * Creates a tappable card for a single inbox message.
-     * Shows sender + obfuscated preview. Tap → reveal + decrypt.
-     */
-    private fun createMessageCard(msg: InboxMessage): View {
-        val card = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(16, 12, 16, 12)
-            setBackgroundColor(Color.parseColor("#F5F5F5"))
-            val params = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-            params.bottomMargin = 8
-            layoutParams = params
-            isClickable = true
-            isFocusable = true
-            setBackgroundResource(android.R.drawable.list_selector_background)
-        }
-
-        val senderLine = TextView(context).apply {
-            text = "From: ${msg.senderUsername}"
-            textSize = 13f
-            setTypeface(null, Typeface.BOLD)
-            setTextColor(Color.parseColor("#212121"))
-        }
-
-        val preview = TextView(context).apply {
-            text = msg.obfuscatedText.take(80) + if (msg.obfuscatedText.length > 80) "…" else ""
-            textSize = 12f
-            setTextColor(Color.parseColor("#616161"))
-            maxLines = 2
-        }
-
-        val timeLine = TextView(context).apply {
-            text = msg.createdAt.take(19).replace("T", " ")
-            textSize = 10f
-            setTextColor(Color.parseColor("#9E9E9E"))
-            gravity = Gravity.END
-        }
-
-        card.addView(senderLine)
-        card.addView(preview)
-        card.addView(timeLine)
-
-        card.setOnClickListener {
-            revealAndDecrypt(msg)
-        }
-
-        return card
-    }
-
     // ═════════════════════════════════════════════════════════
-    //  State 3: DECRYPT
+    //  State 3: DECRYPT RESULT
     // ═════════════════════════════════════════════════════════
 
-    private fun setupDecryptState() {
+    private fun setupDecryptResultState() {
+        binding.btnBackToInbox.text = "⬅ Back"
         binding.btnBackToInbox.setOnClickListener {
             showState(STATE_INBOX)
-            refreshInbox()
-        }
-    }
-
-    private fun revealAndDecrypt(msg: InboxMessage) {
-        showState(STATE_DECRYPT)
-        binding.tvDecryptFrom.text = "From: ${msg.senderUsername} • ${msg.createdAt.take(19).replace("T", " ")}"
-        binding.tvDecryptedText.text = "⏳ Revealing & decrypting..."
-        binding.tvDecryptStatus.text = ""
-
-        GlobalScope.launch(Dispatchers.IO) {
-            val result = repo.revealAndDecrypt(
-                messageId = msg.messageId,
-                conversationId = msg.conversationId,
-                senderId = msg.senderId
-            )
-            withContext(Dispatchers.Main) {
-                result.onSuccess { plaintext ->
-                    binding.tvDecryptedText.text = plaintext
-                    binding.tvDecryptStatus.text = "✅ Decrypted successfully"
-                }.onFailure { e ->
-                    binding.tvDecryptedText.text = ""
-                    binding.tvDecryptStatus.text = "❌ ${simplifyError(e)}"
-                }
-            }
         }
     }
 
@@ -401,6 +338,10 @@ class SecureMessagingKeyboard(
         return when {
             msg.contains("ConnectException") || msg.contains("Failed to connect") ->
                 "Cannot connect to server. Is it running?"
+            msg.contains("wrong key") || msg.contains("tampered data") || msg.contains("InvalidTag") ->
+                "Key mismatch. Clear DB and re-register both users (Bob first, then Alice)."
+            msg.contains("No shared secret") || msg.contains("ephemeral key") ->
+                "Missing key for decryption. Ensure sender sent first message correctly."
             msg.contains("401") || msg.contains("Unauthorized") ->
                 "Invalid credentials"
             msg.contains("409") || msg.contains("Conflict") ->

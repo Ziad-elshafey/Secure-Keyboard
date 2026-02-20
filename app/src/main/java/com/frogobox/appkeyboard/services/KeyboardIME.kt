@@ -94,6 +94,7 @@ class KeyboardIME : BaseKeyboardIME<KeyboardImeBinding>() {
             keyboardEmoji.setInputConnection(currentInputConnection)
             keyboardTemplateText.setInputConnection(currentInputConnection)
             keyboardCompression.setInputConnection(currentInputConnection)
+            keyboardSecureMessaging.setInputConnection(currentInputConnection)
         }
     }
 
@@ -332,9 +333,13 @@ class KeyboardIME : BaseKeyboardIME<KeyboardImeBinding>() {
                                 }
 
                                 KeyboardFeatureType.SECURE_MESSAGING -> {
-                                    hideMainKeyboard()
+                                    keyboardHeader.gone()
                                     keyboardSecureMessaging.visible()
                                     keyboardSecureMessaging.setInputConnection(currentInputConnection)
+
+                                    keyboardSecureMessaging.binding.etUsername.showKeyboardExt()
+                                    keyboardSecureMessaging.binding.etSenderUsername.showKeyboardExt()
+                                    keyboardSecureMessaging.binding.etEncryptedInput.showKeyboardExt()
                                 }
 
                                 KeyboardFeatureType.DEMO -> {
@@ -387,6 +392,18 @@ class KeyboardIME : BaseKeyboardIME<KeyboardImeBinding>() {
                 inputConnection = et3Connection
             }
 
+        } else if (binding?.keyboardSecureMessaging?.visibility == View.VISIBLE) {
+            val etUser = binding?.keyboardSecureMessaging?.binding?.etUsername
+            val etSender = binding?.keyboardSecureMessaging?.binding?.etSenderUsername
+            val etEncrypted = binding?.keyboardSecureMessaging?.binding?.etEncryptedInput
+
+            if (etUser?.isFocused == true) {
+                inputConnection = etUser.onCreateInputConnection(EditorInfo())
+            } else if (etSender?.isFocused == true) {
+                inputConnection = etSender.onCreateInputConnection(EditorInfo())
+            } else if (etEncrypted?.isFocused == true) {
+                inputConnection = etEncrypted.onCreateInputConnection(EditorInfo())
+            }
         } else if (binding?.keyboardWebview?.visibility == View.VISIBLE) {
             inputConnection =
                 binding?.keyboardWebview?.binding?.webview?.onCreateInputConnection(EditorInfo())

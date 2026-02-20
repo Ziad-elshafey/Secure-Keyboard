@@ -7,7 +7,10 @@ import org.bouncycastle.crypto.generators.HKDFBytesGenerator
 import org.bouncycastle.crypto.generators.X25519KeyPairGenerator
 import org.bouncycastle.crypto.params.*
 import org.bouncycastle.crypto.signers.Ed25519Signer
+import org.bouncycastle.crypto.engines.ChaCha7539Engine
 import org.bouncycastle.crypto.modes.ChaCha20Poly1305
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.security.SecureRandom
 
 /**
@@ -251,8 +254,8 @@ object E2EEService {
      * ```
      * When salt is null, HKDF uses a zero-filled salt of hash-length.
      */
-    private fun hkdfDerive(ikm: ByteArray, info: ByteArray, length: Int): ByteArray {
-        val params = HKDFParameters(ikm, null, info)   // salt = null → zero salt
+    private fun hkdfDerive(ikm: ByteArray, info: ByteArray, length: Int, salt: ByteArray? = null): ByteArray {
+        val params = HKDFParameters(ikm, salt, info)
         val hkdf = HKDFBytesGenerator(org.bouncycastle.crypto.digests.SHA256Digest())
         hkdf.init(params)
         val output = ByteArray(length)
@@ -300,5 +303,97 @@ object E2EEService {
             throw IllegalArgumentException("Decryption failed — wrong key or tampered data", e)
         }
         return output.copyOf(len)
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  Bare ChaCha20 (v3.0 — no authentication tag)
+    // ════════════════════════════════════════════════════════════
+
+    /**
+     * Derive per-message ChaCha20 key + 16-byte nonce from shared secret and 16-bit counter.
+     *
+     * Uses HKDF-SHA256 with counter as salt → 48 bytes (32 key + 16 nonce).
+     * Matches Python `crypto.py` `MessageCrypto.derive_message_key()`.
+     *
+     * @param sharedSecret 32-byte master key from X3DH
+     * @param counter 16-bit message counter (0–65535)
+     * @return Pair of (32-byte key, 16-byte nonce)
+     */
+    fun deriveMessageKey(sharedSecret: ByteArray, counter: Int): Pair<ByteArray, ByteArray> {
+        require(sharedSecret.size == KEY_LENGTH) { "Shared secret must be $KEY_LENGTH bytes" }
+        require(counter in 0..65535) { "Counter must be 16-bit (0-65535)" }
+
+        // big-endian uint16 — matches Python struct.pack(">H", counter)
+        val counterBytes = byteArrayOf((counter shr 8).toByte(), (counter and 0xFF).toByte())
+
+        val derived = hkdfDerive(
+            ikm = sharedSecret,
+            info = KDF_INFO_MESSAGE_KEY,
+            length = 48,   // 32 key + 16 nonce
+            salt = counterBytes
+        )
+        return derived.copyOfRange(0, 32) to derived.copyOfRange(32, 48)
+    }
+
+    /**
+     * Bare ChaCha20 stream-cipher encryption (no auth tag).
+     * n bytes plaintext → n bytes ciphertext.
+     * Matches Python `crypto.py` `MessageCrypto.encrypt()`.
+     */
+    fun chacha20Encrypt(plaintext: ByteArray, sharedSecret: ByteArray, counter: Int): ByteArray {
+        val (key, nonce16) = deriveMessageKey(sharedSecret, counter)
+        return bareChaCha20(key, nonce16, plaintext)
+    }
+
+    /**
+     * Bare ChaCha20 stream-cipher decryption (symmetric to encrypt).
+     */
+    fun chacha20Decrypt(ciphertext: ByteArray, sharedSecret: ByteArray, counter: Int): ByteArray =
+        chacha20Encrypt(ciphertext, sharedSecret, counter)   // ChaCha20 is symmetric
+
+    /**
+     * Append 16-bit counter (big-endian) to ciphertext for transmission.
+     * Layout: `[ciphertext …] [counter_hi] [counter_lo]`
+     */
+    fun packCiphertextWithCounter(ciphertext: ByteArray, counter: Int): ByteArray {
+        require(counter in 0..65535) { "Counter must be 16-bit (0-65535)" }
+        return ciphertext + byteArrayOf((counter shr 8).toByte(), (counter and 0xFF).toByte())
+    }
+
+    /**
+     * Split packed data into ciphertext and 16-bit counter.
+     * @return Pair of (ciphertext, counter)
+     */
+    fun unpackCiphertextAndCounter(data: ByteArray): Pair<ByteArray, Int> {
+        require(data.size >= 3) { "Data too short — need at least 1 byte ciphertext + 2 bytes counter" }
+        val ciphertext = data.copyOfRange(0, data.size - 2)
+        val counter = ((data[data.size - 2].toInt() and 0xFF) shl 8) or
+                      (data[data.size - 1].toInt() and 0xFF)
+        return ciphertext to counter
+    }
+
+    /**
+     * Internal bare ChaCha20 using BouncyCastle [ChaCha7539Engine].
+     *
+     * The 16-byte [nonce16] matches Python's `cryptography` library format:
+     * `[4-byte LE initial counter][12-byte nonce]`.
+     */
+    private fun bareChaCha20(key: ByteArray, nonce16: ByteArray, input: ByteArray): ByteArray {
+        // Python's ChaCha20 nonce: first 4 bytes = initial block counter (little-endian)
+        val initialCounter = ByteBuffer.wrap(nonce16, 0, 4).order(ByteOrder.LITTLE_ENDIAN).int
+        val iv12 = nonce16.copyOfRange(4, 16)
+
+        val engine = ChaCha7539Engine()
+        engine.init(true, ParametersWithIV(KeyParameter(key), iv12))
+
+        // Advance to the initial counter position (each block = 64 bytes)
+        val counterLong = initialCounter.toLong() and 0xFFFFFFFFL
+        if (counterLong > 0) {
+            engine.seekTo(counterLong * 64L)
+        }
+
+        val output = ByteArray(input.size)
+        engine.processBytes(input, 0, input.size, output, 0)
+        return output
     }
 }

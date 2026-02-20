@@ -57,46 +57,50 @@ interface SecureApiService {
     @GET("api/keys/status")
     suspend fun getKeyStatus(): KeyStatusResponse
 
-    // ════════════════════════════════════════════════════════════
-    //  Conversations (token required)
-    // ════════════════════════════════════════════════════════════
-
-    @POST("api/conversations/")
-    suspend fun createConversation(@Body request: CreateConversationRequest): ConversationResponse
-
-    @GET("api/conversations/")
-    suspend fun getConversations(
-        @Query("skip") skip: Int = 0,
-        @Query("limit") limit: Int = 50
-    ): List<ConversationResponse>
-
-    @GET("api/conversations/{conversationId}")
-    suspend fun getConversation(
-        @Path("conversationId") conversationId: String
-    ): ConversationResponse
+    @GET("api/keys/bundle/by-username/{username}")
+    suspend fun getKeyBundleByUsername(
+        @Path("username") username: String
+    ): PreKeyBundleResponse
 
     // ════════════════════════════════════════════════════════════
-    //  Messages (token required)
+    //  Sessions (token required) — v3.0 replaces Conversations
     // ════════════════════════════════════════════════════════════
 
-    @POST("api/messages/send")
-    suspend fun sendMessage(@Body request: SendMessageRequest): MessageResponse
+    @POST("api/sessions/")
+    suspend fun createSession(@Body request: CreateSessionRequest): SessionResponse
 
-    @GET("api/messages/inbox")
-    suspend fun getInbox(
-        @Query("skip") skip: Int = 0,
-        @Query("limit") limit: Int = 50
-    ): List<MessageResponse>
+    @GET("api/sessions/")
+    suspend fun listSessions(
+        @Query("active_only") activeOnly: Boolean = true
+    ): List<SessionResponse>
 
-    @GET("api/messages/conversation/{conversationId}")
-    suspend fun getConversationMessages(
-        @Path("conversationId") conversationId: String,
-        @Query("skip") skip: Int = 0,
-        @Query("limit") limit: Int = 50
-    ): List<MessageResponse>
+    @GET("api/sessions/{sessionId}")
+    suspend fun getSession(
+        @Path("sessionId") sessionId: String
+    ): SessionResponse
 
-    @GET("api/messages/{messageId}/reveal")
-    suspend fun revealMessage(
-        @Path("messageId") messageId: String
-    ): RevealMessageResponse
+    @POST("api/sessions/{sessionId}/counter")
+    suspend fun getNextCounter(
+        @Path("sessionId") sessionId: String
+    ): CounterResponse
+
+    @DELETE("api/sessions/{sessionId}")
+    suspend fun deactivateSession(
+        @Path("sessionId") sessionId: String
+    )
+
+    @GET("api/sessions/{sessionId}/ephemeral-key")
+    suspend fun getEphemeralKey(
+        @Path("sessionId") sessionId: String
+    ): EphemeralKeyResponse
+
+    // ════════════════════════════════════════════════════════════
+    //  Obfuscation (token required) — v3.0 replaces Messages
+    // ════════════════════════════════════════════════════════════
+
+    @POST("api/obfuscation/obfuscate")
+    suspend fun obfuscate(@Body request: ObfuscateRequest): ObfuscateResponse
+
+    @POST("api/obfuscation/deobfuscate")
+    suspend fun deobfuscate(@Body request: DeobfuscateRequest): DeobfuscateResponse
 }

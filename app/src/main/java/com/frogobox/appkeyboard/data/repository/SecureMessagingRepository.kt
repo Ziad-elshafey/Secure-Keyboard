@@ -33,7 +33,8 @@ class SecureMessagingRepository @Inject constructor(
          */
         const val FLAG_RAW: Byte        = 0x00
         const val FLAG_COMPRESSED: Byte = 0x01
-    }
+
+        }
 
     /** Set to true to enable compression. Disabled if vocab fails to load. Initialized lazily. */
     private val compressionEnabled: Boolean by lazy {
@@ -61,12 +62,13 @@ class SecureMessagingRepository @Inject constructor(
      * 5. Save tokens, user info, key pairs locally
      */
     suspend fun register(username: String, password: String): Result<String> = runCatching {
-        val email = "$username@keyboard.local"
+        val email = "$username@example.com"  // example.com is valid; keyboard.local fails EmailStr validation
 
         // 1. Register on server
         val response = api.register(RegisterRequest(username, email, password))
         tokenManager.saveTokens(response.accessToken, response.refreshToken)
         tokenManager.saveUserInfo(response.userId, response.username)
+        keyStore.setActiveUser(response.userId)
 
         // 2-3. Generate key pairs
         val identityKeyPair = E2EEService.generateIdentityKeyPair()
@@ -100,6 +102,7 @@ class SecureMessagingRepository @Inject constructor(
         // 2. Get user info
         val user = api.getCurrentUser()
         tokenManager.saveUserInfo(user.userId, user.username)
+        keyStore.setActiveUser(user.userId)
 
         // 3. Ensure keys exist locally and on server
         if (!keyStore.hasIdentityKeys()) {
@@ -129,8 +132,13 @@ class SecureMessagingRepository @Inject constructor(
     fun getUserId(): String? = tokenManager.getUserId()
 
     fun logout() {
+        // Keep long-term keys per user so same emulator can switch users
+        // without breaking key agreement for existing sessions.
+        if (keyStore.hasActiveUser()) {
+            keyStore.clearSessionMaterialForActiveUser()
+            keyStore.clearActiveUser()
+        }
         tokenManager.clearAll()
-        keyStore.clearAll()
     }
 
     // ════════════════════════════════════════════════════════════
@@ -142,118 +150,198 @@ class SecureMessagingRepository @Inject constructor(
     }
 
     // ════════════════════════════════════════════════════════════
-    //  Conversations
-    // ════════════════════════════════════════════════════════════
-
-    suspend fun createConversation(recipientId: String): Result<ConversationResponse> = runCatching {
-        api.createConversation(CreateConversationRequest(participantIds = listOf(recipientId)))
-    }
-
-    suspend fun getConversations(): Result<List<ConversationResponse>> = runCatching {
-        api.getConversations()
-    }
-
-    // ════════════════════════════════════════════════════════════
-    //  Send Message
+    //  Sessions (v3.0 — replaces Conversations)
     // ════════════════════════════════════════════════════════════
 
     /**
-     * Encrypt a plaintext message and send it to the server.
+     * Create (or join) an E2EE session with a peer user.
      *
-     * Flow:
-     * 1. Get or establish shared secret for this conversation
-     *    a. If we have a cached shared secret → use it
-     *    b. If not → fetch recipient's key bundle → X3DH initiate → cache secret
-     * 2. Encrypt plaintext with E2EEService
-     * 3. POST /api/messages/send → server obfuscates → returns decoy text
+     * v4.0 Flow — role-aware X3DH:
      *
-     * @return [SendResult] containing the obfuscated decoy text and message ID
+     * 1. POST /api/sessions/ → server either creates a NEW session or returns
+     *    an EXISTING one (idempotent).
+     * 2. If we already have a cached shared secret for this session → return early.
+     * 3. Detect our role by comparing our user ID with session.initiatorId:
+     *    • **Initiator** (we created it): X3DH initiate → DH(our_eph, peer_spk)
+     *    • **Responder** (peer created it): fetch stored ephemeral key → X3DH respond
+     *      → DH(our_spk, peer_eph)
+     * 4. Cache the shared secret.
      */
-    suspend fun sendMessage(
-        conversationId: String,
-        recipientId: String,
-        plaintext: String
-    ): Result<SendResult> = runCatching {
-        // 1. Get or establish shared secret
-        val isFirstMessage = !keyStore.hasSharedSecret(conversationId)
-        val (sharedSecret, ephemeralPubKey) = getOrEstablishSharedSecret(conversationId, recipientId)
+    suspend fun createSession(
+        peerUsername: String,
+        peerUserId: String
+    ): Result<SessionInfo> = runCatching {
+        val myUserId = tokenManager.getUserId()
+            ?: error("Not logged in — no user ID available")
 
-        // 2. Compress → frame → encrypt
-        val payload = buildPayload(plaintext)
-        val encrypted = E2EEService.encryptBytes(sharedSecret, payload)
+        // ── Step 1: Fetch peer's key bundle & verify (needed for initiator path) ──
+        val bundle = api.getKeyBundle(peerUserId)
+        val identityKeyPub = E2EEService.fromBase64(bundle.identityKeyPublic)
+        val signedPreKeyPub = E2EEService.fromBase64(bundle.signedPrekeyPublic)
+        val signature = E2EEService.fromBase64(bundle.signedPrekeySignature)
 
-        Log.d(TAG, "sendMessage: raw=${plaintext.toByteArray().size}B, " +
-                "payload=${payload.size}B (flag=0x%02X), cipher=${encrypted.ciphertext.size}B"
-                    .format(payload[0]))
+        check(E2EEService.ed25519Verify(identityKeyPub, signedPreKeyPub, signature)) {
+            "Recipient's signed pre-key signature is invalid — possible MITM"
+        }
 
-        // 3. Send to server
-        val response = api.sendMessage(
-            SendMessageRequest(
-                conversationId = conversationId,
-                ciphertext = E2EEService.toBase64(encrypted.ciphertext),
-                nonce = E2EEService.toBase64(encrypted.nonce),
-                ephemeralPublicKey = if (isFirstMessage && ephemeralPubKey != null)
-                    E2EEService.toBase64(ephemeralPubKey) else null
-            )
-        )
+        // ── Step 2: Run X3DH initiate speculatively (generates ephemeral key) ──
+        //    We'll only USE the result if we end up being the initiator.
+        val x3dhInitResult = E2EEService.x3dhInitiate(recipientSignedPreKeyPublic = signedPreKeyPub)
 
-        SendResult(
-            messageId = response.messageId,
-            obfuscatedText = response.obfuscatedText
-        )
-    }
+        // ── Step 3: Create session on server (idempotent; may return existing) ──
+        val session = api.createSession(CreateSessionRequest(
+            peerUsername = peerUsername,
+            ephemeralPublicKey = E2EEService.toBase64(x3dhInitResult.ephemeralPublicKey)
+        ))
 
-    // ════════════════════════════════════════════════════════════
-    //  Receive & Decrypt Messages
-    // ════════════════════════════════════════════════════════════
-
-    /**
-     * Get the inbox — list of obfuscated messages (natural-looking English text).
-     */
-    suspend fun getInbox(): Result<List<InboxMessage>> = runCatching {
-        api.getInbox().map { msg ->
-            InboxMessage(
-                messageId = msg.messageId,
-                conversationId = msg.conversationId,
-                senderId = msg.senderId,
-                senderUsername = msg.senderUsername,
-                obfuscatedText = msg.obfuscatedText,
-                createdAt = msg.createdAt,
-                status = msg.status
+        // ── Step 4: If we already have key material, reuse it (no-op) ──
+        if (keyStore.hasSharedSecret(session.sessionId)) {
+            Log.d(TAG, "createSession: shared secret already cached for ${session.sessionId}")
+            return@runCatching SessionInfo(
+                sessionId = session.sessionId,
+                peerUsername = peerUsername
             )
         }
+
+        // ── Step 5: Detect our role and derive the correct shared secret ──
+        val weAreInitiator = session.initiatorId == myUserId
+        Log.d(TAG, "createSession: weAreInitiator=$weAreInitiator " +
+                "(myId=$myUserId, initiatorId=${session.initiatorId})")
+
+        val sharedSecret: ByteArray
+        if (weAreInitiator) {
+            // WE created this session → use X3DH initiate result
+            sharedSecret = x3dhInitResult.sharedSecret
+            keyStore.saveEphemeralPublicKey(session.sessionId, x3dhInitResult.ephemeralPublicKey)
+            Log.d(TAG, "createSession: initiator path — saved ephemeral + shared secret")
+        } else {
+            // The OTHER user created this session → we are the responder.
+            // Fetch THEIR ephemeral key and run x3dhRespond with OUR signed pre-key.
+            val ephemeralData = api.getEphemeralKey(session.sessionId)
+            val initiatorEphPub = E2EEService.fromBase64(ephemeralData.ephemeralPublicKey)
+
+            val signedPreKey = keyStore.getSignedPreKey()
+                ?: error("No signed pre-key found — cannot respond to X3DH")
+
+            sharedSecret = E2EEService.x3dhRespond(
+                signedPreKeyPrivate = signedPreKey.privateKey,
+                ephemeralPublicKey = initiatorEphPub
+            )
+            Log.d(TAG, "createSession: responder path — derived shared secret via x3dhRespond")
+        }
+
+        // ── Step 6: Cache ──
+        keyStore.saveSharedSecret(session.sessionId, sharedSecret)
+
+        SessionInfo(
+            sessionId = session.sessionId,
+            peerUsername = peerUsername
+        )
     }
 
+    suspend fun listSessions(): Result<List<SessionResponse>> = runCatching {
+        api.listSessions()
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  Send Message (v3.0 — counter + bare ChaCha20 + obfuscation)
+    // ════════════════════════════════════════════════════════════
+
     /**
-     * Reveal and decrypt a single message.
+     * Encrypt a plaintext message and obfuscate via the server.
      *
-     * Flow:
-     * 1. GET /api/messages/{id}/reveal → server de-obfuscates → returns ciphertext
-     * 2. Get or establish shared secret (X3DH respond if first time receiving from this sender)
-     * 3. Decrypt with E2EEService → plaintext
+     * v4.0 Flow (metadata-free):
+     * 1. Get next 16-bit counter from server
+     * 2. Compress → bare ChaCha20 encrypt → pack with counter → base64
+     * 3. POST /api/obfuscation/obfuscate with peer_username → get obfuscated text
      *
-     * @return The original plaintext (NEVER stored anywhere)
+     * @return [SendResult] with ONLY the obfuscated text (no metadata)
      */
-    suspend fun revealAndDecrypt(
-        messageId: String,
-        conversationId: String,
-        senderId: String
-    ): Result<String> = runCatching {
-        // 1. Reveal — server removes obfuscation layer
-        val revealed = api.revealMessage(messageId)
+    suspend fun sendMessage(
+        sessionId: String,
+        peerUsername: String,
+        plaintext: String
+    ): Result<SendResult> = runCatching {
+        val sharedSecret = keyStore.getSharedSecret(sessionId)
+            ?: error("No shared secret for session $sessionId — create session first")
 
-        // 2. Get or establish shared secret
-        val sharedSecret = getOrEstablishSharedSecretForReceive(
-            conversationId = conversationId,
-            senderId = senderId,
-            ephemeralPublicKeyBase64 = revealed.ephemeralPublicKey
+        // 1. Get next counter from server
+        val counterResp = api.getNextCounter(sessionId)
+        val counter = counterResp.counter
+        Log.d(TAG, "sendMessage: got counter=$counter for session=$sessionId")
+
+        // 2. Compress → encrypt → pack
+        val payload = buildPayload(plaintext)
+        val ciphertext = E2EEService.chacha20Encrypt(payload, sharedSecret, counter)
+        val packed = E2EEService.packCiphertextWithCounter(ciphertext, counter)
+        val ciphertextB64 = E2EEService.toBase64(packed)
+
+        Log.d(TAG, "sendMessage: raw=${plaintext.toByteArray().size}B, " +
+                "payload=${payload.size}B (flag=0x%02X), cipher=${ciphertext.size}B, " +
+                "packed=${packed.size}B, counter=$counter"
+                    .format(payload[0]))
+
+        // 3. Obfuscate via server (v4.0: peer_username identifies the session)
+        val obfResult = api.obfuscate(ObfuscateRequest(
+            ciphertextB64 = ciphertextB64,
+            peerUsername = peerUsername
+        ))
+
+        // v4.0: NO metadata appended — just the obfuscated text
+        SendResult(
+            obfuscatedText = obfResult.obfuscatedText
         )
+    }
 
-        // 3. Decrypt → deflag → decompress
-        val ciphertext = E2EEService.fromBase64(revealed.ciphertext)
-        val nonce = E2EEService.fromBase64(revealed.nonce)
-        val payload = E2EEService.decryptToBytes(sharedSecret, ciphertext, nonce)
-        parsePayload(payload)
+    // ════════════════════════════════════════════════════════════
+    //  Decrypt Message (v3.0 — deobfuscate + bare ChaCha20)
+    // ════════════════════════════════════════════════════════════
+
+    /**
+     * Decrypt an obfuscated message received from another user.
+     *
+     * v4.0 Flow (metadata-free):
+     * 1. POST /api/obfuscation/deobfuscate with sender_username → get ciphertext_b64
+     * 2. Server resolves the session from (current_user, sender_username)
+     * 3. Get or establish shared secret (X3DH respond if first time)
+     * 4. base64 decode → unpack counter → bare ChaCha20 decrypt → decompress
+     *
+     * @param obfuscatedText The raw obfuscated text (NO metadata)
+     * @param senderUsername The sender's username (entered by user)
+     * @return The original plaintext
+     */
+    suspend fun decryptMessage(
+        obfuscatedText: String,
+        senderUsername: String
+    ): Result<String> = runCatching {
+        Log.d(TAG, "decryptMessage: sender=$senderUsername")
+
+        // 1. Deobfuscate (v4.0: server finds session from sender_username + current user)
+        val deobfResult = api.deobfuscate(DeobfuscateRequest(
+            obfuscatedText = obfuscatedText,
+            senderUsername = senderUsername
+        ))
+
+        // 2. Find the session for this sender to get shared secret
+        val sessions = api.listSessions(activeOnly = true)
+        val session = sessions.firstOrNull { s ->
+            s.initiatorUsername == senderUsername || s.responderUsername == senderUsername
+        } ?: error("No active session found with $senderUsername")
+
+        // 3. Get or establish shared secret
+        val sharedSecret = getOrEstablishSharedSecretForReceive(session.sessionId)
+
+        // 4. Decode → unpack → decrypt → decompress
+        val packed = E2EEService.fromBase64(deobfResult.ciphertextB64)
+        val (ciphertext, counter) = E2EEService.unpackCiphertextAndCounter(packed)
+        Log.d(TAG, "decryptMessage: packed=${packed.size}B ciphertext=${ciphertext.size}B counter=$counter")
+
+        val payload = E2EEService.chacha20Decrypt(ciphertext, sharedSecret, counter)
+        val plaintext = parsePayload(payload)
+        Log.d(TAG, "decryptMessage: success plaintext=${plaintext.take(50)}...")
+        plaintext
+    }.onFailure { e ->
+        Log.e(TAG, "decryptMessage: failed", e)
     }
 
     // ════════════════════════════════════════════════════════════
@@ -261,36 +349,34 @@ class SecureMessagingRepository @Inject constructor(
     // ════════════════════════════════════════════════════════════
 
     /**
-     * Get cached shared secret, or initiate X3DH to establish one (sender side).
+     * Get cached shared secret, or respond to X3DH to establish one (receiver side).
      *
-     * @return Pair of (sharedSecret, ephemeralPublicKey-or-null)
+     * v4.0: Ephemeral key is fetched from the server via GET /sessions/{id}/ephemeral-key
+     * instead of being embedded in the message metadata.
      */
-    private suspend fun getOrEstablishSharedSecret(
-        conversationId: String,
-        recipientId: String
-    ): Pair<ByteArray, ByteArray?> {
+    private suspend fun getOrEstablishSharedSecretForReceive(
+        sessionId: String
+    ): ByteArray {
         // Check cache first
-        val cached = keyStore.getSharedSecret(conversationId)
-        if (cached != null) return cached to null
+        val cached = keyStore.getSharedSecret(sessionId)
+        if (cached != null) return cached
 
-        // Fetch recipient's key bundle
-        val bundle = api.getKeyBundle(recipientId)
+        // Fetch ephemeral key from server (v4.0)
+        val ephemeralData = api.getEphemeralKey(sessionId)
 
-        // Verify signed pre-key signature
-        val identityKeyPub = E2EEService.fromBase64(bundle.identityKeyPublic)
-        val signedPreKeyPub = E2EEService.fromBase64(bundle.signedPrekeyPublic)
-        val signature = E2EEService.fromBase64(bundle.signedPrekeySignature)
+        // Get our signed pre-key private
+        val signedPreKey = keyStore.getSignedPreKey()
+            ?: error("No signed pre-key found — cannot respond to X3DH")
 
-        val signatureValid = E2EEService.ed25519Verify(identityKeyPub, signedPreKeyPub, signature)
-        check(signatureValid) { "Recipient's signed pre-key signature is invalid — possible MITM" }
+        val ephemeralPub = E2EEService.fromBase64(ephemeralData.ephemeralPublicKey)
+        val sharedSecret = E2EEService.x3dhRespond(
+            signedPreKeyPrivate = signedPreKey.privateKey,
+            ephemeralPublicKey = ephemeralPub
+        )
 
-        // X3DH initiate
-        val x3dhResult = E2EEService.x3dhInitiate(recipientSignedPreKeyPublic = signedPreKeyPub)
-
-        // Cache shared secret
-        keyStore.saveSharedSecret(conversationId, x3dhResult.sharedSecret)
-
-        return x3dhResult.sharedSecret to x3dhResult.ephemeralPublicKey
+        // Cache for future messages in this session
+        keyStore.saveSharedSecret(sessionId, sharedSecret)
+        return sharedSecret
     }
 
     // ════════════════════════════════════════════════════════════
@@ -362,41 +448,6 @@ class SecureMessagingRepository @Inject constructor(
         }
     }
 
-    // ════════════════════════════════════════════════════════════
-    //  Internal: Shared Secret Management
-    // ════════════════════════════════════════════════════════════
-
-    /**
-     * Get cached shared secret, or respond to X3DH to establish one (receiver side).
-     */
-    private fun getOrEstablishSharedSecretForReceive(
-        conversationId: String,
-        senderId: String,
-        ephemeralPublicKeyBase64: String?
-    ): ByteArray {
-        // Check cache first
-        val cached = keyStore.getSharedSecret(conversationId)
-        if (cached != null) return cached
-
-        // Need ephemeral key from sender to perform X3DH respond
-        requireNotNull(ephemeralPublicKeyBase64) {
-            "No shared secret cached and no ephemeral key provided — cannot establish session"
-        }
-
-        // Get our signed pre-key private
-        val signedPreKey = keyStore.getSignedPreKey()
-            ?: error("No signed pre-key found — cannot respond to X3DH")
-
-        val ephemeralPub = E2EEService.fromBase64(ephemeralPublicKeyBase64)
-        val sharedSecret = E2EEService.x3dhRespond(
-            signedPreKeyPrivate = signedPreKey.privateKey,
-            ephemeralPublicKey = ephemeralPub
-        )
-
-        // Cache for future messages in this conversation
-        keyStore.saveSharedSecret(conversationId, sharedSecret)
-        return sharedSecret
-    }
 }
 
 // ════════════════════════════════════════════════════════════
@@ -404,16 +455,10 @@ class SecureMessagingRepository @Inject constructor(
 // ════════════════════════════════════════════════════════════
 
 data class SendResult(
-    val messageId: String,
     val obfuscatedText: String
 )
 
-data class InboxMessage(
-    val messageId: String,
-    val conversationId: String,
-    val senderId: String,
-    val senderUsername: String,
-    val obfuscatedText: String,
-    val createdAt: String,
-    val status: String
+data class SessionInfo(
+    val sessionId: String,
+    val peerUsername: String
 )

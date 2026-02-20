@@ -94,59 +94,57 @@ data class KeyStatusResponse(
 )
 
 // ════════════════════════════════════════════════════════════════
-//  Conversation DTOs
+//  Session DTOs (v3.0 — replaces Conversations)
 // ════════════════════════════════════════════════════════════════
 
-data class CreateConversationRequest(
-    @SerializedName("participant_ids") val participantIds: List<String>,
-    @SerializedName("title") val title: String? = null
+data class CreateSessionRequest(
+    @SerializedName("peer_username") val peerUsername: String,
+    @SerializedName("ephemeral_public_key") val ephemeralPublicKey: String
 )
 
-data class ConversationParticipant(
-    @SerializedName("user_id") val userId: String,
-    @SerializedName("username") val username: String,
-    @SerializedName("display_name") val displayName: String?
-)
-
-data class ConversationResponse(
-    @SerializedName("conversation_id") val conversationId: String,
-    @SerializedName("title") val title: String?,
+data class SessionResponse(
+    @SerializedName("session_id") val sessionId: String,
+    @SerializedName("initiator_id") val initiatorId: String,
+    @SerializedName("initiator_username") val initiatorUsername: String,
+    @SerializedName("responder_id") val responderId: String,
+    @SerializedName("responder_username") val responderUsername: String,
+    @SerializedName("last_counter") val lastCounter: Int,
     @SerializedName("created_at") val createdAt: String,
-    @SerializedName("last_message_at") val lastMessageAt: String?,
-    @SerializedName("participants") val participants: List<ConversationParticipant>
+    @SerializedName("is_active") val isActive: Boolean
+)
+
+data class CounterResponse(
+    @SerializedName("session_id") val sessionId: String,
+    @SerializedName("counter") val counter: Int
 )
 
 // ════════════════════════════════════════════════════════════════
-//  Message DTOs
+//  Obfuscation DTOs (v3.0 — replaces Messages)
 // ════════════════════════════════════════════════════════════════
 
-data class SendMessageRequest(
-    @SerializedName("conversation_id") val conversationId: String,
-    @SerializedName("ciphertext") val ciphertext: String,
-    @SerializedName("nonce") val nonce: String,
-    @SerializedName("ephemeral_public_key") val ephemeralPublicKey: String? = null
+data class ObfuscateRequest(
+    @SerializedName("ciphertext_b64") val ciphertextB64: String,
+    @SerializedName("peer_username") val peerUsername: String
 )
 
-data class MessageResponse(
-    @SerializedName("message_id") val messageId: String,
-    @SerializedName("conversation_id") val conversationId: String,
-    @SerializedName("sender_id") val senderId: String,
-    @SerializedName("sender_username") val senderUsername: String,
+data class ObfuscateResponse(
+    @SerializedName("obfuscated_text") val obfuscatedText: String
+)
+
+data class DeobfuscateRequest(
     @SerializedName("obfuscated_text") val obfuscatedText: String,
-    @SerializedName("obfuscation_data") val obfuscationData: Map<String, Any>?,
-    @SerializedName("obfuscation_version") val obfuscationVersion: String,
-    @SerializedName("seed_id") val seedId: String,
-    @SerializedName("created_at") val createdAt: String,
-    @SerializedName("delivered_at") val deliveredAt: String?,
-    @SerializedName("status") val status: String
+    @SerializedName("sender_username") val senderUsername: String
 )
 
-data class RevealMessageResponse(
-    @SerializedName("message_id") val messageId: String,
-    @SerializedName("conversation_id") val conversationId: String,
-    @SerializedName("sender_id") val senderId: String,
-    @SerializedName("ciphertext") val ciphertext: String,
-    @SerializedName("nonce") val nonce: String,
-    @SerializedName("ephemeral_public_key") val ephemeralPublicKey: String?,
-    @SerializedName("obfuscation_metadata") val obfuscationMetadata: Map<String, Any>?
+data class DeobfuscateResponse(
+    @SerializedName("ciphertext_b64") val ciphertextB64: String
+)
+
+// ════════════════════════════════════════════════════════════════
+//  Ephemeral Key DTO (v4.0)
+// ════════════════════════════════════════════════════════════════
+
+data class EphemeralKeyResponse(
+    @SerializedName("session_id") val sessionId: String,
+    @SerializedName("ephemeral_public_key") val ephemeralPublicKey: String
 )
