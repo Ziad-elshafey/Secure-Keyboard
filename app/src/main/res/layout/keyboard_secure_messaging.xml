@@ -3,23 +3,23 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:background="@color/white"
-    android:padding="4dp">
+    android:background="@drawable/bg_panel_dark">
 
     <!-- ═══════════════ Toolbar ═══════════════ -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="36dp"
+        android:layout_height="40dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:paddingHorizontal="4dp">
+        android:paddingHorizontal="8dp">
 
         <ImageButton
             android:id="@+id/btn_back"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_keyboard_arrow_left"
+            android:tint="@color/secure_text_primary"
             android:contentDescription="Back" />
 
         <TextView
@@ -27,52 +27,47 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Secure Messaging"
+            android:text="🛡️ Secure Messaging"
             android:textSize="14sp"
-            android:textColor="@color/tv_text"
+            android:textColor="@color/secure_text_primary"
             android:textStyle="bold"
-            android:layout_marginStart="4dp" />
+            android:layout_marginStart="6dp" />
 
-        <!-- Nav tabs -->
+        <!-- Pill tabs -->
         <TextView
             android:id="@+id/btn_compose"
             android:layout_width="wrap_content"
             android:layout_height="28dp"
-            android:gravity="center"
-            android:paddingHorizontal="10dp"
-            android:text="✏️"
-            android:textSize="14sp"
-            android:background="?attr/selectableItemBackground"
-            android:visibility="gone" />
+            style="@style/SecureTabPill"
+            android:text="Encrypt"
+            android:visibility="gone"
+            android:layout_marginEnd="4dp" />
 
         <TextView
             android:id="@+id/btn_inbox"
             android:layout_width="wrap_content"
             android:layout_height="28dp"
-            android:gravity="center"
-            android:paddingHorizontal="10dp"
-            android:text="📥"
-            android:textSize="14sp"
-            android:background="?attr/selectableItemBackground"
-            android:visibility="gone" />
+            style="@style/SecureTabPill"
+            android:text="Decrypt"
+            android:visibility="gone"
+            android:layout_marginEnd="4dp" />
 
         <TextView
             android:id="@+id/btn_logout"
             android:layout_width="wrap_content"
             android:layout_height="28dp"
-            android:gravity="center"
-            android:paddingHorizontal="6dp"
+            style="@style/SecureTabPill"
             android:text="⏏"
             android:textSize="12sp"
-            android:background="?attr/selectableItemBackground"
             android:visibility="gone" />
     </LinearLayout>
 
-    <!-- Thin divider -->
+    <!-- Subtle divider -->
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:background="#E0E0E0" />
+        android:background="@color/secure_divider"
+        android:alpha="0.3" />
 
     <!-- ═══════════════ State Flipper ═══════════════ -->
     <ViewFlipper
@@ -85,29 +80,46 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="12dp"
+            android:padding="16dp"
             android:gravity="center">
 
-            <TextView
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="🔐 Not logged in"
-                android:textSize="14sp"
-                android:textColor="@color/tv_text"
-                android:textStyle="bold"
-                android:gravity="center" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Open the app → 🔑 Secure Messaging to login or register first."
-                android:textSize="12sp"
-                android:textColor="#757575"
+                android:orientation="vertical"
                 android:gravity="center"
-                android:paddingTop="4dp" />
+                android:background="@drawable/bg_card_dark"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="🔐"
+                    android:textSize="24sp"
+                    android:gravity="center"
+                    android:paddingBottom="4dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Not Logged In"
+                    android:textSize="15sp"
+                    android:textColor="@color/secure_text_primary"
+                    android:textStyle="bold"
+                    android:gravity="center" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Open the app → 🔑 Secure Messaging to login or register."
+                    android:textSize="12sp"
+                    android:textColor="@color/secure_text_secondary"
+                    android:gravity="center"
+                    android:paddingTop="4dp" />
+            </LinearLayout>
         </LinearLayout>
 
-        <!-- ─── State 1: COMPOSE ─── -->
+        <!-- ─── State 1: COMPOSE / ENCRYPT ─── -->
         <ScrollView
             android:layout_width="match_parent"
             android:layout_height="wrap_content">
@@ -116,9 +128,9 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="6dp">
+                android:padding="8dp">
 
-                <!-- Search row: EditText + Search button -->
+                <!-- Search row -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -128,63 +140,53 @@
                     <EditText
                         android:id="@+id/et_username"
                         android:layout_width="0dp"
-                        android:layout_height="36dp"
+                        android:layout_height="38dp"
                         android:layout_weight="1"
-                        android:hint="Username"
-                        android:textSize="13sp"
-                        android:textColor="@color/tv_text"
-                        android:background="@drawable/bg_edittext_rounded"
-                        android:paddingHorizontal="8dp"
+                        android:hint="Search username..."
+                        style="@style/SecureInput"
                         android:singleLine="true"
-                        android:focusable="true"
-                        android:focusableInTouchMode="true"
                         android:imeOptions="actionDone"
                         android:inputType="text" />
 
                     <Button
                         android:id="@+id/btn_search"
-                        android:layout_width="wrap_content"
-                        android:layout_height="34dp"
+                        android:layout_width="44dp"
+                        android:layout_height="38dp"
                         android:text="🔍"
-                        android:textAllCaps="false"
-                        android:textSize="14sp"
-                        android:layout_marginStart="4dp"
-                        android:minWidth="48dp" />
+                        style="@style/SecureBtnSecondary"
+                        android:textSize="16sp"
+                        android:layout_marginStart="6dp" />
                 </LinearLayout>
 
-                <!-- Search results / conversation create area -->
+                <!-- Search results -->
                 <TextView
                     android:id="@+id/tv_search_result"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:textSize="12sp"
-                    android:textColor="@color/tv_text"
-                    android:paddingTop="4dp"
+                    android:textColor="@color/secure_text_secondary"
+                    android:paddingTop="6dp"
                     android:visibility="gone" />
 
                 <Button
                     android:id="@+id/btn_start_conversation"
                     android:layout_width="match_parent"
-                    android:layout_height="32dp"
-                    android:text="Start Conversation"
-                    android:textAllCaps="false"
-                    android:textSize="11sp"
+                    android:layout_height="36dp"
+                    android:text="💬 Start Conversation"
+                    style="@style/SecureBtnSecondary"
                     android:visibility="gone"
-                    android:layout_marginTop="2dp" />
+                    android:layout_marginTop="4dp" />
 
-                <!-- Message compose area (visible after conversation is selected) -->
+                <!-- Message compose area -->
                 <LinearLayout
                     android:id="@+id/compose_area"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
                     android:visibility="gone"
-                    android:layout_marginTop="4dp">
-
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:background="#E0E0E0" />
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_card_dark"
+                    android:padding="10dp">
 
                     <TextView
                         android:id="@+id/tv_compose_label"
@@ -192,27 +194,25 @@
                         android:layout_height="wrap_content"
                         android:text="Messaging: ..."
                         android:textSize="12sp"
-                        android:textColor="@color/tv_text"
+                        android:textColor="@color/secure_accent"
                         android:textStyle="bold"
-                        android:paddingTop="4dp" />
+                        android:paddingBottom="6dp"
+                        android:drawablePadding="4dp" />
 
-                    <!-- Send button (reads from the host app's text field) -->
                     <Button
                         android:id="@+id/btn_send"
                         android:layout_width="match_parent"
-                        android:layout_height="36dp"
-                        android:text="🔒 Encrypt &amp; Send"
-                        android:textAllCaps="false"
-                        android:textSize="12sp"
-                        android:layout_marginTop="2dp" />
+                        android:layout_height="42dp"
+                        android:text="🔒  Encrypt &amp; Send"
+                        style="@style/SecureBtnPrimary" />
 
                     <TextView
                         android:id="@+id/tv_send_status"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:textSize="11sp"
-                        android:textColor="@color/tv_text"
-                        android:paddingTop="2dp" />
+                        android:textColor="@color/secure_text_secondary"
+                        android:paddingTop="4dp" />
 
                     <!-- Obfuscated output preview -->
                     <ScrollView
@@ -220,87 +220,87 @@
                         android:layout_width="match_parent"
                         android:layout_height="50dp"
                         android:visibility="gone"
-                        android:layout_marginTop="2dp"
-                        android:background="#F5F5F5"
-                        android:padding="4dp">
+                        android:layout_marginTop="6dp"
+                        android:background="@color/secure_bg_panel"
+                        android:padding="6dp">
 
                         <TextView
                             android:id="@+id/tv_obfuscated_preview"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:textSize="11sp"
-                            android:textColor="@color/tv_text"
+                            android:textColor="@color/secure_text_secondary"
                             android:fontFamily="monospace" />
                     </ScrollView>
                 </LinearLayout>
             </LinearLayout>
         </ScrollView>
 
-        <!-- ─── State 2: DECRYPT ─── -->
+        <!-- ─── State 2: DECRYPT INPUT ─── -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="6dp">
+            android:padding="8dp">
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="📥 Decrypt Message"
-                android:textSize="13sp"
-                android:textColor="@color/tv_text"
+                android:text="📥  Decrypt Message"
+                android:textSize="14sp"
+                android:textColor="@color/secure_text_primary"
                 android:textStyle="bold"
-                android:paddingBottom="2dp" />
+                android:paddingBottom="6dp" />
 
-            <!-- Encrypted message input -->
+            <!-- Obfuscated text input -->
+            <TextView
+                style="@style/SecureLabel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Obfuscated text" />
+
             <EditText
                 android:id="@+id/et_encrypted_input"
                 android:layout_width="match_parent"
                 android:layout_height="60dp"
-                android:hint="Paste obfuscated text here..."
-                android:textSize="12sp"
-                android:textColor="@color/tv_text"
-                android:background="@drawable/bg_edittext_rounded"
-                android:paddingHorizontal="8dp"
-                android:paddingVertical="4dp"
+                android:hint="Paste the received message here..."
+                style="@style/SecureInput"
                 android:gravity="top|start"
-                android:focusable="true"
-                android:focusableInTouchMode="true"
                 android:inputType="textMultiLine"
                 android:scrollbars="vertical" />
 
-            <!-- Sender username input -->
+            <!-- Sender username -->
+            <TextView
+                style="@style/SecureLabel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Sender's username"
+                android:layout_marginTop="6dp" />
+
             <EditText
                 android:id="@+id/et_sender_username"
                 android:layout_width="match_parent"
-                android:layout_height="36dp"
-                android:hint="Sender's username"
-                android:textSize="13sp"
-                android:textColor="@color/tv_text"
-                android:background="@drawable/bg_edittext_rounded"
-                android:paddingHorizontal="8dp"
+                android:layout_height="38dp"
+                android:hint="Who sent this message?"
+                style="@style/SecureInput"
                 android:singleLine="true"
-                android:focusable="true"
-                android:focusableInTouchMode="true"
-                android:inputType="text"
-                android:layout_marginTop="4dp" />
+                android:inputType="text" />
 
             <Button
                 android:id="@+id/btn_refresh_inbox"
                 android:layout_width="match_parent"
-                android:layout_height="34dp"
-                android:text="🔓 Decrypt Message"
-                android:textAllCaps="false"
-                android:textSize="12sp"
-                android:layout_marginTop="4dp" />
+                android:layout_height="42dp"
+                android:text="🔓  Decrypt Message"
+                style="@style/SecureBtnPrimary"
+                android:layout_marginTop="8dp" />
 
             <TextView
                 android:id="@+id/tv_inbox_status"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:textSize="11sp"
-                android:textColor="@color/tv_text"
-                android:paddingTop="2dp" />
+                android:textColor="@color/secure_text_secondary"
+                android:paddingTop="4dp" />
         </LinearLayout>
 
         <!-- ─── State 3: DECRYPT RESULT ─── -->
@@ -308,56 +308,64 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="6dp">
+            android:padding="8dp">
 
-            <TextView
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="🔓 Decrypted Message"
-                android:textSize="13sp"
-                android:textColor="@color/tv_text"
-                android:textStyle="bold"
-                android:paddingBottom="2dp" />
-
-            <TextView
-                android:id="@+id/tv_decrypt_from"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textSize="11sp"
-                android:textColor="#757575"
-                android:paddingBottom="2dp" />
-
-            <ScrollView
-                android:layout_width="match_parent"
-                android:layout_height="100dp"
-                android:background="#F5F5F5"
-                android:padding="6dp">
+                android:orientation="vertical"
+                android:background="@drawable/bg_card_dark"
+                android:padding="12dp">
 
                 <TextView
-                    android:id="@+id/tv_decrypted_text"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textSize="13sp"
-                    android:textColor="@color/tv_text"
-                    android:hint="Decrypting..." />
-            </ScrollView>
+                    android:text="🔓  Decrypted Message"
+                    android:textSize="14sp"
+                    android:textColor="@color/secure_text_primary"
+                    android:textStyle="bold"
+                    android:paddingBottom="4dp" />
+
+                <TextView
+                    android:id="@+id/tv_decrypt_from"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="11sp"
+                    android:textColor="@color/secure_text_secondary"
+                    android:paddingBottom="6dp" />
+
+                <ScrollView
+                    android:layout_width="match_parent"
+                    android:layout_height="90dp"
+                    android:background="@color/secure_decrypt_result_bg"
+                    android:padding="8dp">
+
+                    <TextView
+                        android:id="@+id/tv_decrypted_text"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textSize="14sp"
+                        android:textColor="@color/secure_text_primary"
+                        android:hint="Decrypting..."
+                        android:textColorHint="@color/secure_text_secondary" />
+                </ScrollView>
+            </LinearLayout>
 
             <Button
                 android:id="@+id/btn_back_to_inbox"
                 android:layout_width="match_parent"
-                android:layout_height="32dp"
-                android:text="← Back to Inbox"
-                android:textAllCaps="false"
-                android:textSize="11sp"
-                android:layout_marginTop="4dp" />
+                android:layout_height="36dp"
+                android:text="← Back"
+                style="@style/SecureBtnSecondary"
+                android:layout_marginTop="6dp" />
 
             <TextView
                 android:id="@+id/tv_decrypt_status"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:textSize="11sp"
-                android:textColor="@color/tv_text"
-                android:paddingTop="2dp" />
+                android:textColor="@color/secure_text_secondary"
+                android:paddingTop="4dp" />
         </LinearLayout>
 
     </ViewFlipper>

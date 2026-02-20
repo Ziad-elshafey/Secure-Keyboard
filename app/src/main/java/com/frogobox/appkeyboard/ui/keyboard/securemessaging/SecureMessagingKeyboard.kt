@@ -6,6 +6,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.inputmethod.ExtractedTextRequest
 import android.widget.LinearLayout
+import com.frogobox.appkeyboard.R
 import com.frogobox.appkeyboard.databinding.KeyboardSecureMessagingBinding
 import com.frogobox.appkeyboard.data.repository.SecureMessagingRepository
 import com.frogobox.appkeyboard.di.SecureKeyboardEntryPoint
@@ -131,13 +132,23 @@ class SecureMessagingKeyboard(
         binding.btnCompose.visibility = if (loggedIn) View.VISIBLE else View.GONE
         binding.btnLogout.visibility = if (loggedIn) View.VISIBLE else View.GONE
 
+        // Tab pill styling: active = teal, inactive = slate
+        val isCompose = state == STATE_COMPOSE
+        val isInbox = state == STATE_INBOX || state == STATE_DECRYPT
+        binding.btnCompose.setBackgroundResource(
+            if (isCompose) R.drawable.bg_tab_active else R.drawable.bg_tab_inactive
+        )
+        binding.btnInbox.setBackgroundResource(
+            if (isInbox) R.drawable.bg_tab_active else R.drawable.bg_tab_inactive
+        )
+
         val username = repo.getUsername() ?: "Secure Messaging"
         binding.tvToolbarTitle.text = when (state) {
-            STATE_NOT_LOGGED_IN -> "Secure Messaging"
-            STATE_COMPOSE -> "✏️ $username"
-            STATE_INBOX -> "� Decrypt"
-            STATE_DECRYPT -> "🔓 Decrypt"
-            else -> "Secure Messaging"
+            STATE_NOT_LOGGED_IN -> "🛡️ Secure Messaging"
+            STATE_COMPOSE -> "🛡️ $username"
+            STATE_INBOX -> "🛡️ Decrypt"
+            STATE_DECRYPT -> "🛡️ Decrypt"
+            else -> "🛡️ Secure Messaging"
         }
 
         // Toolbar nav buttons
