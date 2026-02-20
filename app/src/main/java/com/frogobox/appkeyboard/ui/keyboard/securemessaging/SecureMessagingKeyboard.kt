@@ -43,6 +43,11 @@ class SecureMessagingKeyboard(
         private const val STATE_COMPOSE = 1
         private const val STATE_INBOX = 2
         private const val STATE_DECRYPT = 3
+
+        // Active session persistence keys (shared with PROCESS_TEXT Activity)
+        private const val PREFS_NAME = "secure_active_session"
+        private const val KEY_SESSION_ID = "session_id"
+        private const val KEY_RECIPIENT_NAME = "recipient_name"
     }
 
     private var _repo: SecureMessagingRepository? = null
@@ -64,6 +69,17 @@ class SecureMessagingKeyboard(
 
     // Guard against double-init
     private var uiInitialized = false
+
+    private fun persistActiveSession(sessionId: String, recipientName: String) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+            .putString(KEY_SESSION_ID, sessionId)
+            .putString(KEY_RECIPIENT_NAME, recipientName)
+            .apply()
+    }
+
+    private fun clearPersistedSession() {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().clear().apply()
+    }
 
     override fun setupViewBinding(
         inflater: LayoutInflater,
@@ -128,6 +144,18 @@ class SecureMessagingKeyboard(
         }
 
         binding.viewFlipper.displayedChild = state
+
+        // Auto-fill clipboard when switching to decrypt tab
+        if (state == STATE_INBOX) {
+            try {
+                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                val clip = clipboard.primaryClip?.getItemAt(0)?.text?.toString()
+                if (!clip.isNullOrBlank()) {
+                    binding.etEncryptedInput.setText(clip)
+                    binding.tvInboxStatus.text = "📋 Pasted from clipboard — enter sender's username, then tap Decrypt"
+                }
+            } catch (_: Exception) { }
+        }
         binding.btnInbox.visibility = if (loggedIn) View.VISIBLE else View.GONE
         binding.btnCompose.visibility = if (loggedIn) View.VISIBLE else View.GONE
         binding.btnLogout.visibility = if (loggedIn) View.VISIBLE else View.GONE
@@ -220,6 +248,7 @@ class SecureMessagingKeyboard(
                 binding.btnStartConversation.isEnabled = true
                 result.onSuccess { sessionInfo ->
                     activeSessionId = sessionInfo.sessionId
+                    persistActiveSession(sessionInfo.sessionId, selectedRecipientName ?: "")
                     binding.composeArea.visibility = View.VISIBLE
                     binding.tvComposeLabel.text = "Messaging: $selectedRecipientName"
                     binding.tvSendStatus.text = ""
@@ -284,6 +313,7 @@ class SecureMessagingKeyboard(
         selectedRecipientId = null
         selectedRecipientName = null
         activeSessionId = null
+        clearPersistedSession()
     }
 
     // ═════════════════════════════════════════════════════════
@@ -292,7 +322,7 @@ class SecureMessagingKeyboard(
 
     private fun setupDecryptInputState() {
         binding.btnRefreshInbox.setOnClickListener { decryptFromInput() }
-        binding.tvInboxStatus.text = "Enter sender's username, paste obfuscated text in the text field above, then tap Decrypt"
+        binding.tvInboxStatus.text = "Enter sender's username, then tap Decrypt"
     }
 
     /**

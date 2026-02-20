@@ -32,6 +32,32 @@
             android:name=".ui.secure.SecureAuthActivity"
             android:exported="false" />
 
+        <!-- PROCESS_TEXT: Encrypt in text selection menu -->
+        <activity
+            android:name=".ui.secure.SecureTextActionActivity"
+            android:label="🔒 Encrypt"
+            android:theme="@style/Theme.SecureTextAction"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
+        <!-- PROCESS_TEXT: Decrypt in text selection menu -->
+        <activity-alias
+            android:name=".ui.secure.SecureTextActionDecrypt"
+            android:targetActivity=".ui.secure.SecureTextActionActivity"
+            android:label="🔓 Decrypt"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity-alias>
+
         <activity
             android:name=".ui.autotext.AutoTextActivity"
             android:exported="false" />
