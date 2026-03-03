@@ -67,4 +67,16 @@ object CompressionService {
             0f
         }
     }
+    
+    /**
+     * Get bits per word (total compressed bits / number of words)
+     */
+    fun getBitsPerWord(text: String, compressedSize: Int): Float {
+        val wordCount = text.split("\\s+").filter { it.isNotEmpty() }.size
+        return if (wordCount > 0) {
+            (compressedSize * 8).toFloat() / wordCount
+        } else {
+            0f
+        }
+    }
 }

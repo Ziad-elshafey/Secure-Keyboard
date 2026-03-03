@@ -125,6 +125,17 @@
     <com.frogobox.appkeyboard.ui.keyboard.securemessaging.SecureMessagingKeyboard
         android:id="@+id/keyboard_secure_messaging"
         android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@id/container_keyboard_main"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <com.frogobox.appkeyboard.ui.keyboard.demo.DemoKeyboard
+        android:id="@+id/keyboard_demo"
+        android:layout_width="match_parent"
         android:layout_height="0dp"
         android:clickable="true"
         android:focusable="true"

@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/white"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp"
+        android:gravity="center_horizontal">
+
+        <!-- Header -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🔐"
+            android:textSize="48sp"
+            android:layout_marginTop="32dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Secure Messaging"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:textColor="@color/tv_text"
+            android:layout_marginTop="8dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Login or register to use end-to-end encrypted messaging from the keyboard."
+            android:textSize="14sp"
+            android:textColor="#757575"
+            android:gravity="center"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="24dp" />
+
+        <!-- Username -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Username">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/et_username"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="text"
+                android:importantForAutofill="no"
+                android:maxLines="1" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Password -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="Password"
+            app:passwordToggleEnabled="true"
+            xmlns:app="http://schemas.android.com/apk/res-auto">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/et_password"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textPassword"
+                android:importantForAutofill="no"
+                android:maxLines="1" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Buttons -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="16dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_login"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:text="Login"
+                android:layout_marginEnd="4dp"
+                app:cornerRadius="12dp"
+                xmlns:app="http://schemas.android.com/apk/res-auto" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_register"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:text="Register"
+                android:layout_marginStart="4dp"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                app:cornerRadius="12dp"
+                xmlns:app="http://schemas.android.com/apk/res-auto" />
+        </LinearLayout>
+
+        <!-- Status -->
+        <TextView
+            android:id="@+id/tv_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="14sp"
+            android:textColor="@color/tv_text"
+            android:gravity="center"
+            android:layout_marginTop="16dp" />
+
+        <!-- Logged-in info card -->
+        <LinearLayout
+            android:id="@+id/card_logged_in"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card_16dp"
+            android:elevation="2dp"
+            android:padding="16dp"
+            android:layout_marginTop="24dp"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/tv_logged_in_label"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="✅ Logged in as:"
+                android:textSize="14sp"
+                android:textColor="#4CAF50" />
+
+            <TextView
+                android:id="@+id/tv_logged_in_user"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:textColor="@color/tv_text"
+                android:layout_marginTop="4dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="You can now use Secure Messaging from the keyboard's feature menu."
+                android:textSize="12sp"
+                android:textColor="#757575"
+                android:layout_marginTop="8dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_logout"
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:text="Logout"
+                android:textColor="#F44336"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_marginTop="12dp"
+                app:cornerRadius="12dp"
+                xmlns:app="http://schemas.android.com/apk/res-auto" />
+        </LinearLayout>
+
+    </LinearLayout>
+</ScrollView>

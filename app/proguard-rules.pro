@@ -19,3 +19,7 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# BouncyCastle crypto library (Ed25519, X25519, ChaCha20-Poly1305)
+-keep class org.bouncycastle.** { *; }
+-dontwarn org.bouncycastle.**

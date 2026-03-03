@@ -135,6 +135,13 @@ dependencies {
     // Crypto
     implementation(libs.google.tink)
     implementation(libs.androidx.security.crypto)
+    implementation(libs.bouncycastle)
+    
+    // Networking
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.gson)
+    implementation(libs.okhttp)
+    implementation(libs.okhttp.logging)
 
     ksp(libs.github.glide.compiler)
     ksp(libs.google.hilt.compiler)

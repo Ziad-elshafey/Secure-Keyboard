@@ -40,6 +40,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    publishing {
+        singleVariant("release") {}
+    }
+
 }
 
 kotlin {

@@ -3,6 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <application
         android:name=".MainApp"
@@ -15,6 +17,7 @@
         android:roundIcon="@drawable/ic_frogobox"
         android:supportsRtl="true"
         android:theme="@style/Theme.Research"
+        android:networkSecurityConfig="@xml/network_security_config"
         tools:targetApi="tiramisu">
 
         <activity
@@ -24,6 +27,36 @@
         <activity
             android:name=".ui.test.CompressionTestActivity"
             android:exported="false" />
+
+        <activity
+            android:name=".ui.secure.SecureAuthActivity"
+            android:exported="false" />
+
+        <!-- PROCESS_TEXT: Encrypt in text selection menu -->
+        <activity
+            android:name=".ui.secure.SecureTextActionActivity"
+            android:label="🔒 Encrypt"
+            android:theme="@style/Theme.SecureTextAction"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
+        <!-- PROCESS_TEXT: Decrypt in text selection menu -->
+        <activity-alias
+            android:name=".ui.secure.SecureTextActionDecrypt"
+            android:targetActivity=".ui.secure.SecureTextActionActivity"
+            android:label="🔓 Decrypt"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity-alias>
 
         <activity
             android:name=".ui.autotext.AutoTextActivity"
