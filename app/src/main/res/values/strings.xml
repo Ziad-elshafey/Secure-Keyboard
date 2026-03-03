@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Secure Messaging Panel -->
+    <string name="secure_title">Secure Messaging</string>
+    <string name="secure_tab_encrypt">Encrypt</string>
+    <string name="secure_tab_decrypt">Decrypt</string>
+    <string name="secure_not_logged_in">Not Logged In</string>
+    <string name="secure_not_logged_in_hint">Open the app and tap Secure Messaging to login or register.</string>
+    <string name="secure_login">Login</string>
+    <string name="secure_search_hint">Search username\u2026</string>
+    <string name="secure_search_empty">Type a username above first</string>
+    <string name="secure_start_conversation">Start Conversation</string>
+    <string name="secure_messaging_label">Messaging: %s</string>
+    <string name="secure_encrypt_send">Encrypt &amp; Send</string>
+    <string name="secure_decrypt_title">Decrypt Message</string>
+    <string name="secure_obfuscated_hint">Paste the received message here\u2026</string>
+    <string name="secure_sender_hint">Who sent this message?</string>
+    <string name="secure_sender_label">Sender\'s username</string>
+    <string name="secure_decrypt_btn">Decrypt Message</string>
+    <string name="secure_decrypted_title">Decrypted Message</string>
+    <string name="secure_decrypting_hint">Decrypting\u2026</string>
+    <string name="secure_back">Back</string>
+    <string name="secure_copy">Copy</string>
+    <string name="secure_paste">Paste</string>
+    <string name="secure_no_text_field">No active text field — tap on a text field first</string>
+    <string name="secure_type_message_hint">Type your message in the text field above first</string>
+    <string name="secure_encrypting">Encrypting &amp; obfuscating\u2026</string>
+    <string name="secure_encrypted_done">Encrypted message placed in text field. Send it!</string>
+    <string name="secure_decrypted_ok">Decrypted successfully</string>
+    <string name="secure_clipboard_pasted">Pasted from clipboard — enter sender\'s username, then tap Decrypt</string>
+    <string name="secure_enter_sender">Enter sender\'s username, then tap Decrypt</string>
+    <string name="secure_enter_sender_first">Enter the sender\'s username first</string>
+    <string name="secure_paste_first">Paste the obfuscated text first</string>
+    <string name="secure_session_creating">Creating session\u2026</string>
+    <string name="secure_session_ready">Session ready</string>
+    <string name="secure_searching">Searching\u2026</string>
+    <string name="secure_no_users_found">No users found matching \'%s\'</string>
+    <string name="secure_found_user">Found: %s</string>
+    <string name="secure_start_conv_with">Start conversation with %s</string>
+    <string name="secure_obfuscated_label">Obfuscated text</string>
+
+    <!-- Content descriptions -->
+    <string name="cd_back">Go back</string>
+    <string name="cd_search">Search users</string>
+    <string name="cd_logout">Logout</string>
+    <string name="cd_copy">Copy to clipboard</string>
+    <string name="cd_paste">Paste from clipboard</string>
+    <string name="cd_clear">Clear text</string>
+    <string name="cd_encrypt_icon">Encryption active</string>
+    <string name="cd_decrypt_icon">Decryption</string>
+</resources>
