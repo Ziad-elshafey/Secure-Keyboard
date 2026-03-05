@@ -5,6 +5,8 @@ import com.frogobox.appkeyboard.data.local.AuthTokenManager
 import com.frogobox.appkeyboard.data.local.SecureKeyStore
 import com.frogobox.appkeyboard.data.remote.AuthInterceptor
 import com.frogobox.appkeyboard.data.remote.SecureApiService
+import com.frogobox.appkeyboard.data.remote.StegoDecodeApiService
+import com.frogobox.appkeyboard.data.remote.StegoEncodeApiService
 import com.frogobox.appkeyboard.data.remote.TokenRefreshAuthenticator
 import dagger.Module
 import dagger.Provides
@@ -16,6 +18,7 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
+import javax.inject.Named
 import javax.inject.Singleton
 
 @Module
@@ -27,7 +30,9 @@ object NetworkModule {
      * - Emulator: 10.0.2.2 maps to host machine's localhost
      * - Physical device: replace with your machine's LAN IP
      */
-    private const val BASE_URL = "http://10.0.2.2:8000/"
+    private const val SECURE_API_BASE_URL = "http://10.0.2.2:8000/"
+    private const val STEGO_ENCODE_BASE_URL = "https://modalcd--encode.modal.run/"
+    private const val STEGO_DECODE_BASE_URL = "https://modalcd--decode.modal.run/"
 
     @Provides
     @Singleton
@@ -59,7 +64,7 @@ object NetworkModule {
             .build()
 
         val refreshRetrofit = Retrofit.Builder()
-            .baseUrl(BASE_URL)
+            .baseUrl(SECURE_API_BASE_URL)
             .client(refreshClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
@@ -80,17 +85,57 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideRetrofit(okHttpClient: OkHttpClient): Retrofit =
+    fun provideSecureApiService(okHttpClient: OkHttpClient): SecureApiService =
         Retrofit.Builder()
-            .baseUrl(BASE_URL)
+            .baseUrl(SECURE_API_BASE_URL)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
+            .create(SecureApiService::class.java)
+
+    /**
+     * No-auth HTTP client for Modal stego endpoints.
+     * Keeps auth tokens scoped to Secure API only.
+     */
+    @Provides
+    @Singleton
+    @Named("stegoClient")
+    fun provideStegoOkHttpClient(): OkHttpClient {
+        val logging = HttpLoggingInterceptor().apply {
+            level = HttpLoggingInterceptor.Level.HEADERS
+        }
+
+        return OkHttpClient.Builder()
+            .addInterceptor(logging)
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(20, TimeUnit.SECONDS)
+            .writeTimeout(10, TimeUnit.SECONDS)
+            .build()
+    }
 
     @Provides
     @Singleton
-    fun provideSecureApiService(retrofit: Retrofit): SecureApiService =
-        retrofit.create(SecureApiService::class.java)
+    fun provideStegoEncodeApiService(
+        @Named("stegoClient") stegoClient: OkHttpClient
+    ): StegoEncodeApiService =
+        Retrofit.Builder()
+            .baseUrl(STEGO_ENCODE_BASE_URL)
+            .client(stegoClient)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(StegoEncodeApiService::class.java)
+
+    @Provides
+    @Singleton
+    fun provideStegoDecodeApiService(
+        @Named("stegoClient") stegoClient: OkHttpClient
+    ): StegoDecodeApiService =
+        Retrofit.Builder()
+            .baseUrl(STEGO_DECODE_BASE_URL)
+            .client(stegoClient)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(StegoDecodeApiService::class.java)
 
     @Provides
     @Singleton

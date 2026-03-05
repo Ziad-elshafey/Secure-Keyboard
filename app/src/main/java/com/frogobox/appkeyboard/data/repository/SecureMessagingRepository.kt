@@ -5,6 +5,10 @@ import com.frogobox.appkeyboard.core.e2ee.E2EEService
 import com.frogobox.appkeyboard.data.local.AuthTokenManager
 import com.frogobox.appkeyboard.data.local.SecureKeyStore
 import com.frogobox.appkeyboard.data.remote.SecureApiService
+import com.frogobox.appkeyboard.data.remote.StegoDecodeApiService
+import com.frogobox.appkeyboard.data.remote.StegoDecodeRequest
+import com.frogobox.appkeyboard.data.remote.StegoEncodeApiService
+import com.frogobox.appkeyboard.data.remote.StegoEncodeRequest
 import com.frogobox.appkeyboard.data.remote.dto.*
 import com.frogobox.appkeyboard.data.repository.compression.CompressionService
 import javax.inject.Inject
@@ -19,6 +23,8 @@ import javax.inject.Singleton
 @Singleton
 class SecureMessagingRepository @Inject constructor(
     private val api: SecureApiService,
+    private val stegoEncodeApi: StegoEncodeApiService,
+    private val stegoDecodeApi: StegoDecodeApiService,
     private val tokenManager: AuthTokenManager,
     private val keyStore: SecureKeyStore
 ) {
@@ -34,7 +40,9 @@ class SecureMessagingRepository @Inject constructor(
         const val FLAG_RAW: Byte        = 0x00
         const val FLAG_COMPRESSED: Byte = 0x01
 
-        }
+        // stegov2 currently expects a one-word context prompt.
+        private const val DEFAULT_STEGO_CONTEXT = "car"
+    }
 
     /** Set to true to enable compression. Disabled if vocab fails to load. Initialized lazily. */
     private val compressionEnabled: Boolean by lazy {
@@ -244,18 +252,17 @@ class SecureMessagingRepository @Inject constructor(
     }
 
     // ════════════════════════════════════════════════════════════
-    //  Send Message (v3.0 — counter + bare ChaCha20 + obfuscation)
+    //  Send Message (v4.1 - ChaCha20 + Modal stego encode)
     // ════════════════════════════════════════════════════════════
 
     /**
-     * Encrypt a plaintext message and obfuscate via the server.
+     * Encrypt a plaintext message and embed it into natural text via stego.
      *
-     * v4.0 Flow (metadata-free):
+     * Flow:
      * 1. Get next 16-bit counter from server
-     * 2. Compress → bare ChaCha20 encrypt → pack with counter → base64
-     * 3. POST /api/obfuscation/obfuscate with peer_username → get obfuscated text
-     *
-     * @return [SendResult] with ONLY the obfuscated text (no metadata)
+     * 2. Compress -> bare ChaCha20 encrypt -> pack with counter
+     * 3. Convert packed bytes to bitstring
+     * 4. Call Modal encode endpoint and return generated text
      */
     suspend fun sendMessage(
         sessionId: String,
@@ -268,47 +275,45 @@ class SecureMessagingRepository @Inject constructor(
         // 1. Get next counter from server
         val counterResp = api.getNextCounter(sessionId)
         val counter = counterResp.counter
-        Log.d(TAG, "sendMessage: got counter=$counter for session=$sessionId")
+        Log.d(TAG, "sendMessage: got counter=$counter for session=$sessionId peer=$peerUsername")
 
-        // 2. Compress → encrypt → pack
+        // 2. Compress -> encrypt -> pack
         val payload = buildPayload(plaintext)
         val ciphertext = E2EEService.chacha20Encrypt(payload, sharedSecret, counter)
         val packed = E2EEService.packCiphertextWithCounter(ciphertext, counter)
-        val ciphertextB64 = E2EEService.toBase64(packed)
+        val packedBits = packed.toBitString()
 
         Log.d(TAG, "sendMessage: raw=${plaintext.toByteArray().size}B, " +
                 "payload=${payload.size}B (flag=0x%02X), cipher=${ciphertext.size}B, " +
                 "packed=${packed.size}B, counter=$counter"
                     .format(payload[0]))
 
-        // 3. Obfuscate via server (v4.0: peer_username identifies the session)
-        val obfResult = api.obfuscate(ObfuscateRequest(
-            ciphertextB64 = ciphertextB64,
-            peerUsername = peerUsername
-        ))
+        // 3. Encode packed ciphertext bits into natural text
+        val encodeResult = stegoEncodeApi.encode(
+            StegoEncodeRequest(
+                context = buildStegoContext(),
+                bits = packedBits
+            )
+        )
 
-        // v4.0: NO metadata appended — just the obfuscated text
+        // No metadata appended; use stego text as-is.
         SendResult(
-            obfuscatedText = obfResult.obfuscatedText
+            obfuscatedText = encodeResult.text
         )
     }
 
     // ════════════════════════════════════════════════════════════
-    //  Decrypt Message (v3.0 — deobfuscate + bare ChaCha20)
+    //  Decrypt Message (v4.1 - Modal stego decode + ChaCha20)
     // ════════════════════════════════════════════════════════════
 
     /**
-     * Decrypt an obfuscated message received from another user.
+     * Decrypt a stego text message received from another user.
      *
-     * v4.0 Flow (metadata-free):
-     * 1. POST /api/obfuscation/deobfuscate with sender_username → get ciphertext_b64
-     * 2. Server resolves the session from (current_user, sender_username)
-     * 3. Get or establish shared secret (X3DH respond if first time)
-     * 4. base64 decode → unpack counter → bare ChaCha20 decrypt → decompress
-     *
-     * @param obfuscatedText The raw obfuscated text (NO metadata)
-     * @param senderUsername The sender's username (entered by user)
-     * @return The original plaintext
+     * Flow:
+     * 1. Call Modal decode endpoint to recover bits
+     * 2. Resolve sender session and shared secret
+     * 3. Convert bits to bytes and unpack counter/ciphertext
+     * 4. Decrypt payload and parse compression flag
      */
     suspend fun decryptMessage(
         obfuscatedText: String,
@@ -316,11 +321,8 @@ class SecureMessagingRepository @Inject constructor(
     ): Result<String> = runCatching {
         Log.d(TAG, "decryptMessage: sender=$senderUsername")
 
-        // 1. Deobfuscate (v4.0: server finds session from sender_username + current user)
-        val deobfResult = api.deobfuscate(DeobfuscateRequest(
-            obfuscatedText = obfuscatedText,
-            senderUsername = senderUsername
-        ))
+        // 1. Decode stego text into packed ciphertext bits
+        val decodeResult = stegoDecodeApi.decode(StegoDecodeRequest(text = obfuscatedText))
 
         // 2. Find the session for this sender to get shared secret
         val sessions = api.listSessions(activeOnly = true)
@@ -331,8 +333,8 @@ class SecureMessagingRepository @Inject constructor(
         // 3. Get or establish shared secret
         val sharedSecret = getOrEstablishSharedSecretForReceive(session.sessionId)
 
-        // 4. Decode → unpack → decrypt → decompress
-        val packed = E2EEService.fromBase64(deobfResult.ciphertextB64)
+        // 4. Decode -> unpack -> decrypt -> decompress
+        val packed = bitStringToByteArray(decodeResult.bits)
         val (ciphertext, counter) = E2EEService.unpackCiphertextAndCounter(packed)
         Log.d(TAG, "decryptMessage: packed=${packed.size}B ciphertext=${ciphertext.size}B counter=$counter")
 
@@ -448,6 +450,27 @@ class SecureMessagingRepository @Inject constructor(
         }
     }
 
+    private fun ByteArray.toBitString(): String =
+        joinToString(separator = "") { byte ->
+            String.format("%8s", (byte.toInt() and 0xFF).toString(2)).replace(' ', '0')
+        }
+
+    private fun bitStringToByteArray(bits: String): ByteArray {
+        val normalizedBits = bits.filterNot { it.isWhitespace() }
+        require(normalizedBits.isNotBlank()) { "Decoded bitstring is empty" }
+        require(normalizedBits.all { it == '0' || it == '1' }) {
+            "Decoded bitstring contains invalid chars"
+        }
+        require(normalizedBits.length % 8 == 0) {
+            "Decoded bitstring length must be a multiple of 8, got ${normalizedBits.length}"
+        }
+
+        return ByteArray(normalizedBits.length / 8) { index ->
+            normalizedBits.substring(index * 8, index * 8 + 8).toInt(2).toByte()
+        }
+    }
+
+    private fun buildStegoContext(): String = DEFAULT_STEGO_CONTEXT
 }
 
 // ════════════════════════════════════════════════════════════
@@ -462,3 +485,4 @@ data class SessionInfo(
     val sessionId: String,
     val peerUsername: String
 )
+
