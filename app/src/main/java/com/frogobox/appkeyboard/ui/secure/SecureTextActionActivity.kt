@@ -66,6 +66,17 @@ class SecureTextActionActivity : AppCompatActivity() {
             }
         }
 
+        // Silent decrypt: if the user already has an active session from the keyboard,
+        // skip the dialog entirely and decrypt using the saved peer username.
+        if (!isEncryptMode && selectedText.isNotEmpty()) {
+            val prefs = getSharedPreferences("secure_active_session", MODE_PRIVATE)
+            val savedRecipient = prefs.getString("recipient_name", null)
+            if (!savedRecipient.isNullOrEmpty()) {
+                doSilentDecrypt(savedRecipient)
+                return
+            }
+        }
+
         setupUI()
 
         binding.btnCancel.setOnClickListener { finish() }
@@ -111,6 +122,51 @@ class SecureTextActionActivity : AppCompatActivity() {
                     binding.tvStatus.text = "❌ ${simplifyError(e)}"
                     binding.tvStatus.setTextColor(getColor(com.frogobox.appkeyboard.R.color.secure_text_danger))
                     binding.btnCancel.visibility = View.VISIBLE
+                    binding.btnCancel.setOnClickListener { finish() }
+                }
+            }
+        }
+    }
+
+    /**
+     * Decrypt without showing any UI — used when the keyboard already has an active session.
+     * Uses the saved recipient_name as the sender username for decryption.
+     */
+    private fun doSilentDecrypt(senderUsername: String) {
+        binding.tvTitle.text = "Decrypting..."
+        binding.tvLabelText.visibility = View.GONE
+        binding.tvSelectedText.visibility = View.GONE
+        binding.tvLabelUsername.visibility = View.GONE
+        binding.etUsername.visibility = View.GONE
+        binding.btnAction.visibility = View.GONE
+        binding.btnCancel.visibility = View.GONE
+        binding.tvStatus.text = "Decrypting from $senderUsername..."
+        binding.tvStatus.setTextColor(getColor(com.frogobox.appkeyboard.R.color.secure_text_secondary))
+
+        GlobalScope.launch(Dispatchers.IO) {
+            val result = repo.decryptMessage(selectedText, senderUsername)
+
+            withContext(Dispatchers.Main) {
+                result.onSuccess { plaintext ->
+                    if (!isReadOnly) {
+                        val resultIntent = Intent().apply {
+                            putExtra(Intent.EXTRA_PROCESS_TEXT, plaintext)
+                        }
+                        setResult(RESULT_OK, resultIntent)
+                        finish()
+                    } else {
+                        binding.tvStatus.text = "Decrypted! Copied to clipboard."
+                        binding.tvStatus.setTextColor(getColor(com.frogobox.appkeyboard.R.color.secure_text_success))
+                        copyToClipboard(plaintext)
+                        binding.btnCancel.visibility = View.VISIBLE
+                        binding.btnCancel.text = "Done"
+                        binding.btnCancel.setOnClickListener { finish() }
+                    }
+                }.onFailure { e ->
+                    binding.tvStatus.text = simplifyError(e)
+                    binding.tvStatus.setTextColor(getColor(com.frogobox.appkeyboard.R.color.secure_text_danger))
+                    binding.btnCancel.visibility = View.VISIBLE
+                    binding.btnCancel.text = "Close"
                     binding.btnCancel.setOnClickListener { finish() }
                 }
             }

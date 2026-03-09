@@ -288,18 +288,26 @@ class SecureMessagingRepository @Inject constructor(
                 "packed=${packed.size}B, counter=$counter"
                     .format(payload[0]))
 
-        // 3. Encode packed ciphertext bits into natural text
-        val encodeResult = stegoEncodeApi.encode(
-            StegoEncodeRequest(
-                context = buildStegoContext(),
-                bits = packedBits
-            )
-        )
+        // 3. Encode packed ciphertext bits into natural text.
+        //    Try Modal directly; if unreachable, fall back to server-side obfuscation.
+        val obfuscatedText = try {
+            stegoEncodeApi.encode(
+                StegoEncodeRequest(
+                    context = buildStegoContext(),
+                    bits = packedBits
+                )
+            ).text
+        } catch (e: Exception) {
+            Log.w(TAG, "Modal stego encode failed (${e.message}) — falling back to server obfuscation")
+            api.obfuscate(
+                ObfuscateRequest(
+                    ciphertextB64 = E2EEService.toBase64(packed),
+                    peerUsername = peerUsername
+                )
+            ).obfuscatedText
+        }
 
-        // No metadata appended; use stego text as-is.
-        SendResult(
-            obfuscatedText = encodeResult.text
-        )
+        SendResult(obfuscatedText = obfuscatedText)
     }
 
     // ════════════════════════════════════════════════════════════
@@ -321,8 +329,18 @@ class SecureMessagingRepository @Inject constructor(
     ): Result<String> = runCatching {
         Log.d(TAG, "decryptMessage: sender=$senderUsername")
 
-        // 1. Decode stego text into packed ciphertext bits
-        val decodeResult = stegoDecodeApi.decode(StegoDecodeRequest(text = obfuscatedText))
+        // 1. Decode stego text into packed ciphertext bytes.
+        //    Try Modal directly; if unreachable, fall back to server-side deobfuscation.
+        val packed: ByteArray = try {
+            bitStringToByteArray(
+                stegoDecodeApi.decode(StegoDecodeRequest(text = obfuscatedText)).bits
+            )
+        } catch (e: Exception) {
+            Log.w(TAG, "Modal stego decode failed (${e.message}) — falling back to server deobfuscation")
+            E2EEService.fromBase64(
+                api.deobfuscate(DeobfuscateRequest(obfuscatedText, senderUsername)).ciphertextB64
+            )
+        }
 
         // 2. Find the session for this sender to get shared secret
         val sessions = api.listSessions(activeOnly = true)
@@ -333,8 +351,7 @@ class SecureMessagingRepository @Inject constructor(
         // 3. Get or establish shared secret
         val sharedSecret = getOrEstablishSharedSecretForReceive(session.sessionId)
 
-        // 4. Decode -> unpack -> decrypt -> decompress
-        val packed = bitStringToByteArray(decodeResult.bits)
+        // 4. Unpack -> decrypt -> decompress
         val (ciphertext, counter) = E2EEService.unpackCiphertextAndCounter(packed)
         Log.d(TAG, "decryptMessage: packed=${packed.size}B ciphertext=${ciphertext.size}B counter=$counter")
 

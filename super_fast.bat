@@ -14,7 +14,7 @@ set "AVD_NAME=Medium_Phone_API_35"
 "%ADB%" devices 2>nul | findstr /R "emulator-.*device" >nul 2>&1
 if errorlevel 1 (
     echo [INFO] No emulator detected — launching %AVD_NAME%...
-    start "" "%EMULATOR%" -avd %AVD_NAME% -no-snapshot-load
+    start "" "%EMULATOR%" -avd %AVD_NAME% -no-snapshot-load -dns-server 8.8.8.8
     echo [INFO] Waiting for emulator to boot...
     "%ADB%" wait-for-device
     :WAIT_BOOT

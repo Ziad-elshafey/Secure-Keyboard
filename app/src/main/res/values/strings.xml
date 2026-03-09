@@ -28,6 +28,8 @@
     <string name="secure_encrypted_done">Encrypted message placed in text field. Send it!</string>
     <string name="secure_decrypted_ok">Decrypted successfully</string>
     <string name="secure_clipboard_pasted">Pasted from clipboard — enter sender\'s username, then tap Decrypt</string>
+    <string name="secure_clipboard_ready">Clipboard: %d chars ready to decrypt</string>
+    <string name="secure_clipboard_empty">Clipboard empty — copy an obfuscated message first</string>
     <string name="secure_enter_sender">Enter sender\'s username, then tap Decrypt</string>
     <string name="secure_enter_sender_first">Enter the sender\'s username first</string>
     <string name="secure_paste_first">Paste the obfuscated text first</string>

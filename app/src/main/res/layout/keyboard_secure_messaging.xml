@@ -101,7 +101,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp"
+            android:padding="8dp"
             android:gravity="center">
 
             <LinearLayout
@@ -110,11 +110,11 @@
                 android:orientation="vertical"
                 android:gravity="center"
                 android:background="@drawable/bg_card_elevated"
-                android:padding="20dp">
+                android:padding="12dp">
 
                 <ImageView
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
                     android:src="@drawable/ic_secure_lock"
                     android:contentDescription="@string/cd_encrypt_icon" />
 
@@ -122,27 +122,27 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="@string/secure_not_logged_in"
-                    android:textSize="15sp"
+                    android:textSize="14sp"
                     android:textColor="@color/secure_text_primary"
                     android:fontFamily="sans-serif-medium"
                     android:gravity="center"
-                    android:paddingTop="8dp" />
+                    android:paddingTop="4dp" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="@string/secure_not_logged_in_hint"
-                    android:textSize="12sp"
+                    android:textSize="11sp"
                     android:textColor="@color/secure_text_secondary"
                     android:gravity="center"
-                    android:paddingTop="4dp"
+                    android:paddingTop="2dp"
                     android:lineSpacingMultiplier="1.2" />
 
                 <Button
                     android:id="@+id/btn_open_login"
                     android:layout_width="match_parent"
-                    android:layout_height="40dp"
-                    android:layout_marginTop="12dp"
+                    android:layout_height="36dp"
+                    android:layout_marginTop="8dp"
                     android:background="@drawable/bg_login_btn"
                     android:drawableStart="@drawable/ic_secure_login"
                     android:drawablePadding="6dp"
@@ -165,7 +165,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="10dp">
+                android:padding="6dp">
 
                 <!-- Search row -->
                 <LinearLayout
@@ -246,9 +246,9 @@
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
                     android:visibility="gone"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="4dp"
                     android:background="@drawable/bg_card_elevated"
-                    android:padding="12dp">
+                    android:padding="8dp">
 
                     <TextView
                         android:id="@+id/tv_compose_label"
@@ -257,7 +257,7 @@
                         android:textSize="12sp"
                         android:textColor="@color/secure_accent"
                         android:fontFamily="sans-serif-medium"
-                        android:paddingBottom="8dp"
+                        android:paddingBottom="4dp"
                         android:drawableStart="@drawable/ic_secure_encrypt"
                         android:drawablePadding="6dp"
                         android:drawableTint="@color/secure_accent"
@@ -266,7 +266,7 @@
                     <Button
                         android:id="@+id/btn_send"
                         android:layout_width="match_parent"
-                        android:layout_height="42dp"
+                        android:layout_height="38dp"
                         android:text="@string/secure_encrypt_send"
                         android:drawableStart="@drawable/ic_secure_send"
                         android:drawablePadding="6dp"
@@ -328,7 +328,7 @@
                         <ScrollView
                             android:id="@+id/scroll_obfuscated"
                             android:layout_width="match_parent"
-                            android:layout_height="44dp"
+                            android:layout_height="36dp"
                             android:layout_marginTop="4dp">
 
                             <TextView
@@ -349,61 +349,24 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="10dp">
+            android:padding="6dp">
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:paddingBottom="8dp">
-
-                <ImageView
-                    android:layout_width="18dp"
-                    android:layout_height="18dp"
-                    android:src="@drawable/ic_secure_decrypt"
-                    android:contentDescription="@string/cd_decrypt_icon" />
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="@string/secure_decrypt_title"
-                    style="@style/SecureSectionHeader"
-                    android:layout_marginStart="6dp" />
-
-                <Button
-                    android:id="@+id/btn_paste_clipboard"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/secure_paste"
-                    android:drawableStart="@drawable/ic_secure_paste"
-                    android:drawablePadding="4dp"
-                    style="@style/SecureCopyBtn"
-                    android:contentDescription="@string/cd_paste" />
-            </LinearLayout>
-
-            <EditText
-                android:id="@+id/et_encrypted_input"
-                android:layout_width="match_parent"
-                android:layout_height="60dp"
-                android:hint="@string/secure_obfuscated_hint"
-                style="@style/SecureInput"
-                android:gravity="top|start"
-                android:inputType="textMultiLine"
-                android:scrollbars="vertical" />
-
+            <!-- Clipboard status -->
             <TextView
-                style="@style/SecureLabel"
+                android:id="@+id/tv_clipboard_status"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/secure_sender_label"
-                android:layout_marginTop="8dp" />
+                android:textSize="11sp"
+                android:textColor="@color/secure_text_secondary"
+                android:drawableStart="@drawable/ic_secure_paste"
+                android:drawablePadding="4dp"
+                android:drawableTint="@color/secure_accent"
+                android:paddingBottom="4dp" />
 
             <EditText
                 android:id="@+id/et_sender_username"
                 android:layout_width="match_parent"
-                android:layout_height="38dp"
+                android:layout_height="36dp"
                 android:hint="@string/secure_sender_hint"
                 style="@style/SecureInput"
                 android:singleLine="true"
@@ -412,13 +375,13 @@
             <Button
                 android:id="@+id/btn_refresh_inbox"
                 android:layout_width="match_parent"
-                android:layout_height="42dp"
+                android:layout_height="38dp"
                 android:text="@string/secure_decrypt_btn"
                 android:drawableStart="@drawable/ic_secure_decrypt"
                 android:drawablePadding="6dp"
                 android:drawableTint="@color/secure_btn_text"
                 style="@style/SecureBtnPrimary"
-                android:layout_marginTop="8dp" />
+                android:layout_marginTop="4dp" />
 
             <!-- Loading indicator for decrypt -->
             <ProgressBar
@@ -444,14 +407,14 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="10dp">
+            android:padding="6dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:background="@drawable/bg_card_elevated"
-                android:padding="14dp">
+                android:padding="10dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -496,7 +459,7 @@
 
                 <ScrollView
                     android:layout_width="match_parent"
-                    android:layout_height="90dp"
+                    android:layout_height="70dp"
                     android:background="@color/secure_decrypt_result_bg"
                     android:padding="10dp">
 
@@ -515,13 +478,13 @@
             <Button
                 android:id="@+id/btn_back_to_inbox"
                 android:layout_width="match_parent"
-                android:layout_height="36dp"
+                android:layout_height="32dp"
                 android:text="@string/secure_back"
                 android:drawableStart="@drawable/ic_keyboard_arrow_left"
                 android:drawablePadding="4dp"
                 android:drawableTint="@color/secure_text_primary"
                 style="@style/SecureBtnSecondary"
-                android:layout_marginTop="8dp" />
+                android:layout_marginTop="4dp" />
 
             <TextView
                 android:id="@+id/tv_decrypt_status"

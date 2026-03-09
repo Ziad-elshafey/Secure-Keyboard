@@ -64,6 +64,7 @@ class SecureMessagingKeyboard(
     private var selectedRecipientId: String? = null
     private var selectedRecipientName: String? = null
     private var activeSessionId: String? = null
+    private var clipboardText: String? = null
     private var uiInitialized = false
 
     private fun persistActiveSession(sessionId: String, recipientName: String) {
@@ -190,10 +191,30 @@ class SecureMessagingKeyboard(
             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             val clip = clipboard.primaryClip?.getItemAt(0)?.text?.toString()
             if (!clip.isNullOrBlank()) {
-                binding.etEncryptedInput.setText(clip)
-                binding.tvInboxStatus.text = context.getString(R.string.secure_clipboard_pasted)
+                clipboardText = clip
+                binding.tvClipboardStatus.text =
+                    context.getString(R.string.secure_clipboard_ready, clip.length)
+                binding.tvClipboardStatus.setTextColor(
+                    context.getColor(R.color.secure_text_success)
+                )
+            } else {
+                clipboardText = null
+                binding.tvClipboardStatus.text =
+                    context.getString(R.string.secure_clipboard_empty)
+                binding.tvClipboardStatus.setTextColor(
+                    context.getColor(R.color.secure_text_warning)
+                )
             }
-        } catch (_: Exception) { }
+        } catch (_: Exception) {
+            clipboardText = null
+        }
+
+        // Auto-fill sender from persisted session
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val savedRecipient = prefs.getString(KEY_RECIPIENT_NAME, null)
+        if (!savedRecipient.isNullOrEmpty()) {
+            binding.etSenderUsername.setText(savedRecipient)
+        }
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -390,18 +411,6 @@ class SecureMessagingKeyboard(
     private fun setupDecryptInputState() {
         binding.btnRefreshInbox.setOnClickListener { decryptFromInput() }
         binding.tvInboxStatus.text = context.getString(R.string.secure_enter_sender)
-
-        binding.btnPasteClipboard.setOnClickListener {
-            try {
-                val clipboard =
-                    context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                val clip = clipboard.primaryClip?.getItemAt(0)?.text?.toString()
-                if (!clip.isNullOrBlank()) {
-                    binding.etEncryptedInput.setText(clip)
-                    Toast.makeText(context, context.getString(R.string.secure_paste), Toast.LENGTH_SHORT).show()
-                }
-            } catch (_: Exception) { }
-        }
     }
 
     private fun decryptFromInput() {
@@ -412,9 +421,9 @@ class SecureMessagingKeyboard(
             return
         }
 
-        val obfuscatedText = binding.etEncryptedInput.text.toString().trim()
-        if (obfuscatedText.isEmpty()) {
-            binding.tvInboxStatus.text = context.getString(R.string.secure_paste_first)
+        val obfuscatedText = clipboardText?.trim()
+        if (obfuscatedText.isNullOrEmpty()) {
+            binding.tvInboxStatus.text = context.getString(R.string.secure_clipboard_empty)
             binding.tvInboxStatus.setTextColor(context.getColor(R.color.secure_text_warning))
             return
         }
