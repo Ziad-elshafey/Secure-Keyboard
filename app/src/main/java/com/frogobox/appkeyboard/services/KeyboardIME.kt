@@ -1,15 +1,23 @@
 package com.frogobox.appkeyboard.services
 
+import android.app.AlertDialog
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.ExtractedTextRequest
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
+import android.widget.Toast
 import com.frogobox.appkeyboard.R
 import com.frogobox.appkeyboard.databinding.ItemKeyboardHeaderBinding
 import com.frogobox.appkeyboard.databinding.KeyboardImeBinding
+import com.frogobox.appkeyboard.data.repository.SecureMessagingRepository
+import com.frogobox.appkeyboard.di.SecureKeyboardEntryPoint
 import com.frogobox.appkeyboard.model.KeyboardFeatureModel
 import com.frogobox.appkeyboard.model.KeyboardFeatureType
 import com.frogobox.appkeyboard.model.ThemeType
@@ -24,6 +32,11 @@ import com.frogobox.sdk.ext.gone
 import com.frogobox.sdk.ext.invisible
 import com.frogobox.sdk.ext.visible
 import dagger.hilt.android.AndroidEntryPoint
+import dagger.hilt.android.EntryPointAccessors
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 
@@ -35,6 +48,13 @@ class KeyboardIME : BaseKeyboardIME<KeyboardImeBinding>() {
 
     @Inject
     lateinit var keyboardUtil: KeyboardUtil
+
+    private val secureRepo: SecureMessagingRepository by lazy {
+        EntryPointAccessors.fromApplication(
+            applicationContext,
+            SecureKeyboardEntryPoint::class.java
+        ).secureMessagingRepository()
+    }
 
     override fun setupViewBinding(): KeyboardImeBinding {
         return KeyboardImeBinding.inflate(LayoutInflater.from(this), null, false)
@@ -333,12 +353,15 @@ class KeyboardIME : BaseKeyboardIME<KeyboardImeBinding>() {
                                 }
 
                                 KeyboardFeatureType.SECURE_MESSAGING -> {
-                                    keyboardHeader.gone()
-                                    keyboardSecureMessaging.visible()
-                                    keyboardSecureMessaging.setInputConnection(currentInputConnection)
+                                    openSecureSessionPanel()
+                                }
 
-                                    keyboardSecureMessaging.binding.etUsername.showKeyboardExt()
-                                    keyboardSecureMessaging.binding.etSenderUsername.showKeyboardExt()
+                                KeyboardFeatureType.SECURE_ENCRYPT -> {
+                                    handleEncryptAction()
+                                }
+
+                                KeyboardFeatureType.SECURE_DECRYPT -> {
+                                    handleDecryptAction()
                                 }
 
                                 KeyboardFeatureType.DEMO -> {
@@ -393,12 +416,9 @@ class KeyboardIME : BaseKeyboardIME<KeyboardImeBinding>() {
 
         } else if (binding?.keyboardSecureMessaging?.visibility == View.VISIBLE) {
             val etUser = binding?.keyboardSecureMessaging?.binding?.etUsername
-            val etSender = binding?.keyboardSecureMessaging?.binding?.etSenderUsername
 
             if (etUser?.isFocused == true) {
                 inputConnection = etUser.onCreateInputConnection(EditorInfo())
-            } else if (etSender?.isFocused == true) {
-                inputConnection = etSender.onCreateInputConnection(EditorInfo())
             }
         } else if (binding?.keyboardWebview?.visibility == View.VISIBLE) {
             inputConnection =
@@ -434,6 +454,159 @@ class KeyboardIME : BaseKeyboardIME<KeyboardImeBinding>() {
 
     private fun getStateToggle(key: String): Boolean {
         return pref.getPrefBoolean(key, true)
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  Secure Messaging: Inline Encrypt / Decrypt
+    // ═══════════════════════════════════════════════════════════
+
+    private fun openSecureSessionPanel() {
+        hideMainKeyboard()
+        binding?.apply {
+            keyboardSecureMessaging.visible()
+            keyboardSecureMessaging.setInputConnection(currentInputConnection)
+            keyboardSecureMessaging.binding.etUsername.showKeyboardExt()
+        }
+    }
+
+    private fun handleEncryptAction() {
+        try {
+            val loggedIn = secureRepo.isLoggedIn()
+            if (!loggedIn) {
+                openSecureSessionPanel()
+                Toast.makeText(this, R.string.secure_login_required, Toast.LENGTH_SHORT).show()
+                return
+            }
+        } catch (e: Exception) {
+            openSecureSessionPanel()
+            Toast.makeText(this, R.string.secure_login_required, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val prefs = getSharedPreferences("secure_active_session", Context.MODE_PRIVATE)
+        val sessionId = prefs.getString("session_id", null)
+        val recipientName = prefs.getString("recipient_name", null)
+
+        if (sessionId.isNullOrEmpty() || recipientName.isNullOrEmpty()) {
+            openSecureSessionPanel()
+            Toast.makeText(this, R.string.secure_no_session, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val ic = currentInputConnection
+        if (ic == null) {
+            Toast.makeText(this, R.string.secure_no_text_field, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val extracted = ic.getExtractedText(ExtractedTextRequest(), 0)
+        val plaintext = extracted?.text?.toString()?.trim() ?: ""
+
+        if (plaintext.isEmpty()) {
+            Toast.makeText(this, R.string.secure_type_message_hint, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        Toast.makeText(this, R.string.secure_encrypting, Toast.LENGTH_SHORT).show()
+
+        GlobalScope.launch(Dispatchers.IO) {
+            val result = secureRepo.sendMessage(sessionId, recipientName, plaintext)
+            withContext(Dispatchers.Main) {
+                result.onSuccess { sendResult ->
+                    currentInputConnection?.apply {
+                        performContextMenuAction(android.R.id.selectAll)
+                        commitText(sendResult.obfuscatedText, 1)
+                    }
+                    Toast.makeText(
+                        this@KeyboardIME,
+                        R.string.secure_encrypted_done,
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }.onFailure { e ->
+                    Toast.makeText(
+                        this@KeyboardIME,
+                        "Encrypt failed: ${e.message?.take(80)}",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
+    }
+
+    private fun handleDecryptAction() {
+        try {
+            val loggedIn = secureRepo.isLoggedIn()
+            if (!loggedIn) {
+                openSecureSessionPanel()
+                Toast.makeText(this, R.string.secure_login_required, Toast.LENGTH_SHORT).show()
+                return
+            }
+        } catch (e: Exception) {
+            openSecureSessionPanel()
+            Toast.makeText(this, R.string.secure_login_required, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val prefs = getSharedPreferences("secure_active_session", Context.MODE_PRIVATE)
+        val recipientName = prefs.getString("recipient_name", null)
+
+        if (recipientName.isNullOrEmpty()) {
+            openSecureSessionPanel()
+            Toast.makeText(this, R.string.secure_no_session, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clipText = clipboard.primaryClip?.getItemAt(0)?.text?.toString()?.trim()
+
+        if (clipText.isNullOrEmpty()) {
+            Toast.makeText(this, R.string.secure_clipboard_empty, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        Toast.makeText(this, R.string.secure_decrypting_hint, Toast.LENGTH_SHORT).show()
+
+        GlobalScope.launch(Dispatchers.IO) {
+            val result = secureRepo.decryptMessage(clipText, recipientName)
+            withContext(Dispatchers.Main) {
+                result.onSuccess { plaintext ->
+                    showDecryptResultDialog(recipientName, plaintext)
+                }.onFailure { e ->
+                    Toast.makeText(
+                        this@KeyboardIME,
+                        "Decrypt failed: ${e.message?.take(80)}",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
+    }
+
+    private fun showDecryptResultDialog(senderName: String, plaintext: String) {
+        try {
+            val dialog = AlertDialog.Builder(this)
+                .setTitle("Decrypted Message")
+                .setMessage("From: $senderName\n\n$plaintext")
+                .setPositiveButton("OK", null)
+                .setNeutralButton("Copy") { _, _ ->
+                    val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    clipboard.setPrimaryClip(
+                        android.content.ClipData.newPlainText("Decrypted Message", plaintext)
+                    )
+                    Toast.makeText(this, "Copied", Toast.LENGTH_SHORT).show()
+                }
+                .create()
+            @Suppress("DEPRECATION")
+            dialog.window?.setType(WindowManager.LayoutParams.TYPE_INPUT_METHOD_DIALOG)
+            dialog.show()
+        } catch (e: Exception) {
+            // Fallback: copy to clipboard and toast
+            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            clipboard.setPrimaryClip(
+                android.content.ClipData.newPlainText("Decrypted Message", plaintext)
+            )
+            Toast.makeText(this, "Decrypted! Copied to clipboard.", Toast.LENGTH_LONG).show()
+        }
     }
 
 }

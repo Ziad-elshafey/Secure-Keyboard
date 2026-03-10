@@ -1,7 +1,5 @@
 package com.frogobox.appkeyboard.ui.keyboard.securemessaging
 
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.text.Editable
@@ -9,9 +7,7 @@ import android.text.TextWatcher
 import android.util.AttributeSet
 import android.view.LayoutInflater
 import android.view.View
-import android.view.inputmethod.ExtractedTextRequest
 import android.widget.LinearLayout
-import android.widget.Toast
 import com.frogobox.appkeyboard.R
 import com.frogobox.appkeyboard.databinding.KeyboardSecureMessagingBinding
 import com.frogobox.appkeyboard.data.repository.SecureMessagingRepository
@@ -25,13 +21,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Secure Messaging Keyboard — Full E2EE + Steganographic Obfuscation
+ * Secure Messaging Keyboard — Session Management Only
  *
  * States (ViewFlipper indices):
  *   0 = NOT_LOGGED_IN
- *   1 = COMPOSE (search user -> create session -> send encrypted)
- *   2 = DECRYPT (paste encrypted text -> deobfuscate -> decrypt)
- *   3 = DECRYPT RESULT (revealed + decrypted plaintext)
+ *   1 = SESSION_MGMT (search user -> create session)
+ *
+ * Encryption and decryption are handled by inline keyboard header buttons
+ * in KeyboardIME (SECURE_ENCRYPT / SECURE_DECRYPT).
  */
 class SecureMessagingKeyboard(
     context: Context,
@@ -40,9 +37,7 @@ class SecureMessagingKeyboard(
 
     companion object {
         private const val STATE_NOT_LOGGED_IN = 0
-        private const val STATE_COMPOSE = 1
-        private const val STATE_INBOX = 2
-        private const val STATE_DECRYPT = 3
+        private const val STATE_SESSION_MGMT = 1
 
         private const val PREFS_NAME = "secure_active_session"
         private const val KEY_SESSION_ID = "session_id"
@@ -64,7 +59,6 @@ class SecureMessagingKeyboard(
     private var selectedRecipientId: String? = null
     private var selectedRecipientName: String? = null
     private var activeSessionId: String? = null
-    private var clipboardText: String? = null
     private var uiInitialized = false
 
     private fun persistActiveSession(sessionId: String, recipientName: String) {
@@ -95,9 +89,7 @@ class SecureMessagingKeyboard(
         uiInitialized = true
 
         setupLoginState()
-        setupComposeState()
-        setupDecryptInputState()
-        setupDecryptResultState()
+        setupSessionMgmtState()
         refreshAuthState()
     }
 
@@ -111,7 +103,7 @@ class SecureMessagingKeyboard(
     private fun refreshAuthState() {
         try {
             if (repo.isLoggedIn()) {
-                showState(STATE_COMPOSE)
+                showState(STATE_SESSION_MGMT)
             } else {
                 showState(STATE_NOT_LOGGED_IN)
             }
@@ -129,8 +121,6 @@ class SecureMessagingKeyboard(
 
         if (!loggedIn && state != STATE_NOT_LOGGED_IN) {
             binding.viewFlipper.displayedChild = STATE_NOT_LOGGED_IN
-            binding.btnInbox.visibility = View.GONE
-            binding.btnCompose.visibility = View.GONE
             binding.btnLogout.visibility = View.GONE
             binding.tvToolbarTitle.text = context.getString(R.string.secure_title)
             return
@@ -139,33 +129,15 @@ class SecureMessagingKeyboard(
         setFlipperAnimation(state)
         binding.viewFlipper.displayedChild = state
 
-        if (state == STATE_INBOX) {
-            autoPasteClipboard()
-        }
-
-        binding.btnInbox.visibility = if (loggedIn) View.VISIBLE else View.GONE
-        binding.btnCompose.visibility = if (loggedIn) View.VISIBLE else View.GONE
         binding.btnLogout.visibility = if (loggedIn) View.VISIBLE else View.GONE
-
-        val isCompose = state == STATE_COMPOSE
-        val isInbox = state == STATE_INBOX || state == STATE_DECRYPT
-        binding.btnCompose.setBackgroundResource(
-            if (isCompose) R.drawable.bg_tab_active_new else R.drawable.bg_tab_inactive_new
-        )
-        binding.btnInbox.setBackgroundResource(
-            if (isInbox) R.drawable.bg_tab_active_new else R.drawable.bg_tab_inactive_new
-        )
 
         val username = repo.getUsername() ?: context.getString(R.string.secure_title)
         binding.tvToolbarTitle.text = when (state) {
             STATE_NOT_LOGGED_IN -> context.getString(R.string.secure_title)
-            STATE_COMPOSE -> username
-            STATE_INBOX, STATE_DECRYPT -> context.getString(R.string.secure_tab_decrypt)
+            STATE_SESSION_MGMT -> username
             else -> context.getString(R.string.secure_title)
         }
 
-        binding.btnInbox.setOnClickListener { showState(STATE_INBOX) }
-        binding.btnCompose.setOnClickListener { showState(STATE_COMPOSE) }
         binding.btnLogout.setOnClickListener {
             repo.logout()
             resetComposeState()
@@ -186,37 +158,6 @@ class SecureMessagingKeyboard(
         }
     }
 
-    private fun autoPasteClipboard() {
-        try {
-            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            val clip = clipboard.primaryClip?.getItemAt(0)?.text?.toString()
-            if (!clip.isNullOrBlank()) {
-                clipboardText = clip
-                binding.tvClipboardStatus.text =
-                    context.getString(R.string.secure_clipboard_ready, clip.length)
-                binding.tvClipboardStatus.setTextColor(
-                    context.getColor(R.color.secure_text_success)
-                )
-            } else {
-                clipboardText = null
-                binding.tvClipboardStatus.text =
-                    context.getString(R.string.secure_clipboard_empty)
-                binding.tvClipboardStatus.setTextColor(
-                    context.getColor(R.color.secure_text_warning)
-                )
-            }
-        } catch (_: Exception) {
-            clipboardText = null
-        }
-
-        // Auto-fill sender from persisted session
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val savedRecipient = prefs.getString(KEY_RECIPIENT_NAME, null)
-        if (!savedRecipient.isNullOrEmpty()) {
-            binding.etSenderUsername.setText(savedRecipient)
-        }
-    }
-
     // ═══════════════════════════════════════════════════════════
     //  State 0: NOT LOGGED IN
     // ═══════════════════════════════════════════════════════════
@@ -231,13 +172,12 @@ class SecureMessagingKeyboard(
     }
 
     // ═══════════════════════════════════════════════════════════
-    //  State 1: COMPOSE
+    //  State 1: SESSION MANAGEMENT
     // ═══════════════════════════════════════════════════════════
 
-    private fun setupComposeState() {
+    private fun setupSessionMgmtState() {
         binding.btnSearch.setOnClickListener { searchUser() }
         binding.btnStartConversation.setOnClickListener { startConversation() }
-        binding.btnSend.setOnClickListener { sendMessage() }
 
         binding.btnClearSearch.setOnClickListener {
             binding.etUsername.text?.clear()
@@ -254,13 +194,6 @@ class SecureMessagingKeyboard(
                     if (s.isNullOrEmpty()) View.GONE else View.VISIBLE
             }
         })
-
-        binding.btnCopyObfuscated.setOnClickListener {
-            val text = binding.tvObfuscatedPreview.text.toString()
-            if (text.isNotEmpty()) {
-                copyToClipboard(text)
-            }
-        }
     }
 
     private fun searchUser() {
@@ -275,7 +208,6 @@ class SecureMessagingKeyboard(
         binding.tvSearchResult.visibility = View.VISIBLE
         binding.tvSearchResult.text = context.getString(R.string.secure_searching)
         binding.btnStartConversation.visibility = View.GONE
-        binding.composeArea.visibility = View.GONE
 
         GlobalScope.launch(Dispatchers.IO) {
             val result = repo.searchUsers(query)
@@ -324,11 +256,6 @@ class SecureMessagingKeyboard(
                 result.onSuccess { sessionInfo ->
                     activeSessionId = sessionInfo.sessionId
                     persistActiveSession(sessionInfo.sessionId, selectedRecipientName ?: "")
-                    binding.composeArea.visibility = View.VISIBLE
-                    binding.tvComposeLabel.text =
-                        context.getString(R.string.secure_messaging_label, selectedRecipientName)
-                    binding.tvSendStatus.text = ""
-                    binding.obfuscatedContainer.visibility = View.GONE
                     binding.tvSearchResult.text = context.getString(R.string.secure_session_ready)
                     binding.tvSearchResult.setTextColor(
                         context.getColor(R.color.secure_text_success)
@@ -344,59 +271,6 @@ class SecureMessagingKeyboard(
         }
     }
 
-    private fun sendMessage() {
-        val sessionId = activeSessionId ?: return
-        val ic = currentInputConnection
-
-        if (ic == null) {
-            binding.tvSendStatus.text = context.getString(R.string.secure_no_text_field)
-            binding.tvSendStatus.setTextColor(context.getColor(R.color.secure_text_danger))
-            return
-        }
-
-        val extracted = ic.getExtractedText(ExtractedTextRequest(), 0)
-        val plaintext = extracted?.text?.toString()?.trim() ?: ""
-
-        if (plaintext.isEmpty()) {
-            binding.tvSendStatus.text = context.getString(R.string.secure_type_message_hint)
-            return
-        }
-
-        setSendLoading(true)
-        binding.tvSendStatus.text = context.getString(R.string.secure_encrypting)
-        binding.tvSendStatus.setTextColor(context.getColor(R.color.secure_text_secondary))
-
-        GlobalScope.launch(Dispatchers.IO) {
-            val result = repo.sendMessage(sessionId, selectedRecipientName ?: "", plaintext)
-            withContext(Dispatchers.Main) {
-                setSendLoading(false)
-                result.onSuccess { sendResult ->
-                    ic.apply {
-                        performContextMenuAction(android.R.id.selectAll)
-                        commitText(sendResult.obfuscatedText, 1)
-                    }
-
-                    binding.tvSendStatus.text = context.getString(R.string.secure_encrypted_done)
-                    binding.tvSendStatus.setTextColor(
-                        context.getColor(R.color.secure_text_success)
-                    )
-                    binding.obfuscatedContainer.visibility = View.VISIBLE
-                    binding.tvObfuscatedPreview.text = sendResult.obfuscatedText
-                }.onFailure { e ->
-                    binding.tvSendStatus.text = simplifyError(e)
-                    binding.tvSendStatus.setTextColor(
-                        context.getColor(R.color.secure_text_danger)
-                    )
-                }
-            }
-        }
-    }
-
-    private fun setSendLoading(loading: Boolean) {
-        binding.progressSend.visibility = if (loading) View.VISIBLE else View.GONE
-        binding.btnSend.isEnabled = !loading
-    }
-
     private fun resetComposeState() {
         selectedRecipientId = null
         selectedRecipientName = null
@@ -405,89 +279,8 @@ class SecureMessagingKeyboard(
     }
 
     // ═══════════════════════════════════════════════════════════
-    //  State 2: DECRYPT
-    // ═══════════════════════════════════════════════════════════
-
-    private fun setupDecryptInputState() {
-        binding.btnRefreshInbox.setOnClickListener { decryptFromInput() }
-        binding.tvInboxStatus.text = context.getString(R.string.secure_enter_sender)
-    }
-
-    private fun decryptFromInput() {
-        val senderUsername = binding.etSenderUsername.text.toString().trim()
-        if (senderUsername.isEmpty()) {
-            binding.tvInboxStatus.text = context.getString(R.string.secure_enter_sender_first)
-            binding.tvInboxStatus.setTextColor(context.getColor(R.color.secure_text_warning))
-            return
-        }
-
-        val obfuscatedText = clipboardText?.trim()
-        if (obfuscatedText.isNullOrEmpty()) {
-            binding.tvInboxStatus.text = context.getString(R.string.secure_clipboard_empty)
-            binding.tvInboxStatus.setTextColor(context.getColor(R.color.secure_text_warning))
-            return
-        }
-
-        setDecryptLoading(true)
-        binding.tvInboxStatus.text = context.getString(R.string.secure_decrypting_hint)
-        binding.tvInboxStatus.setTextColor(context.getColor(R.color.secure_text_secondary))
-
-        GlobalScope.launch(Dispatchers.IO) {
-            val result = repo.decryptMessage(obfuscatedText, senderUsername)
-            withContext(Dispatchers.Main) {
-                setDecryptLoading(false)
-                result.onSuccess { plaintext ->
-                    showState(STATE_DECRYPT)
-                    binding.tvDecryptFrom.text =
-                        context.getString(R.string.secure_messaging_label, senderUsername)
-                            .replace("Messaging:", "From:")
-                    binding.tvDecryptedText.text = plaintext
-                    binding.tvDecryptStatus.text =
-                        context.getString(R.string.secure_decrypted_ok)
-                    binding.tvDecryptStatus.setTextColor(
-                        context.getColor(R.color.secure_text_success)
-                    )
-                }.onFailure { e ->
-                    binding.tvInboxStatus.text = simplifyError(e)
-                    binding.tvInboxStatus.setTextColor(
-                        context.getColor(R.color.secure_text_danger)
-                    )
-                }
-            }
-        }
-    }
-
-    private fun setDecryptLoading(loading: Boolean) {
-        binding.progressDecrypt.visibility = if (loading) View.VISIBLE else View.GONE
-        binding.btnRefreshInbox.isEnabled = !loading
-    }
-
-    // ═══════════════════════════════════════════════════════════
-    //  State 3: DECRYPT RESULT
-    // ═══════════════════════════════════════════════════════════
-
-    private fun setupDecryptResultState() {
-        binding.btnBackToInbox.setOnClickListener {
-            showState(STATE_INBOX)
-        }
-
-        binding.btnCopyDecrypted.setOnClickListener {
-            val text = binding.tvDecryptedText.text.toString()
-            if (text.isNotEmpty()) {
-                copyToClipboard(text)
-            }
-        }
-    }
-
-    // ═══════════════════════════════════════════════════════════
     //  Helpers
     // ═══════════════════════════════════════════════════════════
-
-    private fun copyToClipboard(text: String) {
-        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipboard.setPrimaryClip(ClipData.newPlainText("Secure Message", text))
-        Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
-    }
 
     private fun simplifyError(e: Throwable): String {
         val msg = e.message ?: "Unknown error"

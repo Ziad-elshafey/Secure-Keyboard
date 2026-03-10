@@ -21,7 +21,9 @@ enum class KeyboardFeatureType(val id: String, val text: String, val icon: Int) 
     TEMPLATE_TEXT_LOVE("menu_template_text_love", "Love Emoji", R.drawable.ic_menu_ps_love),
     TEMPLATE_TEXT_GREETING("menu_template_text_greeting", "Greeting", R.drawable.ic_menu_ps_greeting),
     COMPRESSION("menu_compression", "Compress Text", R.drawable.ic_menu_auto_text),
-    SECURE_MESSAGING("menu_secure", "Secure Message", R.drawable.ic_menu_auto_text),
+    SECURE_MESSAGING("menu_secure", "Session", R.drawable.ic_secure_lock),
+    SECURE_ENCRYPT("menu_secure_encrypt", "Encrypt", R.drawable.ic_secure_encrypt),
+    SECURE_DECRYPT("menu_secure_decrypt", "Decrypt", R.drawable.ic_secure_decrypt),
     DEMO("menu_demo", "Backend Demo", R.drawable.ic_menu_auto_text),
     CHANGE_KEYBOARD("menu_change_keyboard", "Change Keyboard", R.drawable.ic_menu_keyboard),
     SETTING("menu_setting", "Setting", R.drawable.ic_menu_setting);

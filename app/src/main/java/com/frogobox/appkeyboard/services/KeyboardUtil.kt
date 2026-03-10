@@ -41,6 +41,8 @@ class KeyboardUtil @Inject constructor(
             KeyboardFeatureType.FORM.mapToModel(),
             KeyboardFeatureType.COMPRESSION.mapToModel(),
             KeyboardFeatureType.SECURE_MESSAGING.mapToModel(),
+            KeyboardFeatureType.SECURE_ENCRYPT.mapToModel(),
+            KeyboardFeatureType.SECURE_DECRYPT.mapToModel(),
             KeyboardFeatureType.DEMO.mapToModel(),
             KeyboardFeatureType.CHANGE_KEYBOARD.mapToModel(),
             KeyboardFeatureType.SETTING.mapToModel(),
