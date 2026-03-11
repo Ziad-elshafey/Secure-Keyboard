@@ -43,6 +43,19 @@
     <string name="secure_login_required">Login required — tap Session to sign in</string>
     <string name="secure_no_session">No active session — tap Session to set one up</string>
 
+    <!-- Decrypt capture (accessibility) -->
+    <string name="accessibility_service_label">Decrypt Tap Service</string>
+    <string name="accessibility_service_description">Lets you tap on an encrypted message in any app to decrypt it. Only active when you press the Decrypt button on the keyboard.</string>
+    <string name="decrypt_capture_instruction">🔓 Tap on the encrypted message to decrypt</string>
+    <string name="decrypt_capture_cancel">Cancel</string>
+    <string name="decrypt_capture_cancelled">Decrypt cancelled</string>
+    <string name="decrypt_capture_enable_service">Enable the Decrypt Tap service in Accessibility Settings to tap-to-decrypt</string>
+    <string name="decrypt_capture_waiting">Tap on the message you want to decrypt\u2026</string>
+    <string name="decrypt_pick_message">\ud83d\udd13 Select the message to decrypt:</string>
+    <string name="decrypt_scan_failed">Could not read screen content. Is the service enabled?</string>
+    <string name="decrypt_no_messages_found">No messages found on screen</string>
+    <string name="decrypt_tap_fallback">Couldn\u2019t read that message. Showing all messages\u2026</string>
+
     <!-- Content descriptions -->
     <string name="cd_back">Go back</string>
     <string name="cd_search">Search users</string>

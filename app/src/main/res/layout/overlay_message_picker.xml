@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="#EE222222"
+    android:padding="12dp"
+    android:maxHeight="400dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/decrypt_pick_message"
+        android:textColor="#FFFFFF"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        android:paddingBottom="8dp" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:maxHeight="300dp">
+
+        <LinearLayout
+            android:id="@+id/messageListContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+
+    </ScrollView>
+
+    <Button
+        android:id="@+id/btnCancelPicker"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/decrypt_capture_cancel"
+        android:textColor="#FFFFFF"
+        android:backgroundTint="#88FF5252"
+        android:layout_marginTop="8dp"
+        android:minHeight="40dp" />
+
+</LinearLayout>

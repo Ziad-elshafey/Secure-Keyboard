@@ -1,13 +1,12 @@
 package com.frogobox.appkeyboard.services
 
-import android.app.AlertDialog
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.ExtractedTextRequest
 import android.view.inputmethod.InputMethodManager
@@ -31,6 +30,7 @@ import com.frogobox.sdk.ext.getColorExt
 import com.frogobox.sdk.ext.gone
 import com.frogobox.sdk.ext.invisible
 import com.frogobox.sdk.ext.visible
+import com.frogobox.appkeyboard.core.DecryptCaptureState
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.Dispatchers
@@ -466,6 +466,7 @@ class KeyboardIME : BaseKeyboardIME<KeyboardImeBinding>() {
             keyboardSecureMessaging.visible()
             keyboardSecureMessaging.setInputConnection(currentInputConnection)
             keyboardSecureMessaging.binding.etUsername.showKeyboardExt()
+            keyboardSecureMessaging.binding.etUsername.requestFocus()
         }
     }
 
@@ -556,56 +557,58 @@ class KeyboardIME : BaseKeyboardIME<KeyboardImeBinding>() {
             return
         }
 
+        // Try accessibility capture mode if the service is enabled
+        if (DecryptCaptureState.isServiceEnabled(this) && DecryptCaptureState.serviceInstance != null) {
+            Toast.makeText(this, R.string.decrypt_capture_waiting, Toast.LENGTH_SHORT).show()
+            DecryptCaptureState.startCapture(recipientName) { capturedText ->
+                performDecryption(capturedText, recipientName)
+            }
+            return
+        }
+
+        // Fallback: clipboard-based decrypt
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val clipText = clipboard.primaryClip?.getItemAt(0)?.text?.toString()?.trim()
 
         if (clipText.isNullOrEmpty()) {
-            Toast.makeText(this, R.string.secure_clipboard_empty, Toast.LENGTH_SHORT).show()
+            // No service and no clipboard — prompt to enable service
+            Toast.makeText(this, R.string.decrypt_capture_enable_service, Toast.LENGTH_LONG).show()
             return
         }
 
-        Toast.makeText(this, R.string.secure_decrypting_hint, Toast.LENGTH_SHORT).show()
-
-        GlobalScope.launch(Dispatchers.IO) {
-            val result = secureRepo.decryptMessage(clipText, recipientName)
-            withContext(Dispatchers.Main) {
-                result.onSuccess { plaintext ->
-                    showDecryptResultDialog(recipientName, plaintext)
-                }.onFailure { e ->
-                    Toast.makeText(
-                        this@KeyboardIME,
-                        "Decrypt failed: ${e.message?.take(80)}",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-            }
-        }
+        performDecryption(clipText, recipientName)
     }
 
-    private fun showDecryptResultDialog(senderName: String, plaintext: String) {
-        try {
-            val dialog = AlertDialog.Builder(this)
-                .setTitle("Decrypted Message")
-                .setMessage("From: $senderName\n\n$plaintext")
-                .setPositiveButton("OK", null)
-                .setNeutralButton("Copy") { _, _ ->
-                    val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    clipboard.setPrimaryClip(
-                        android.content.ClipData.newPlainText("Decrypted Message", plaintext)
-                    )
-                    Toast.makeText(this, "Copied", Toast.LENGTH_SHORT).show()
+    private fun performDecryption(ciphertext: String, recipientName: String) {
+        Log.d("KeyboardIME", "performDecryption: text length=${ciphertext.length}, first100=${ciphertext.take(100)}")
+        Toast.makeText(this, "Decrypting ${ciphertext.length} chars...", Toast.LENGTH_SHORT).show()
+
+        GlobalScope.launch(Dispatchers.IO) {
+            val result = secureRepo.decryptMessage(ciphertext, recipientName)
+            withContext(Dispatchers.Main) {
+                result.onSuccess { plaintext ->
+                    val intent = android.content.Intent(
+                        this@KeyboardIME,
+                        com.frogobox.appkeyboard.ui.secure.DecryptResultActivity::class.java
+                    ).apply {
+                        putExtra(com.frogobox.appkeyboard.ui.secure.DecryptResultActivity.EXTRA_SENDER, recipientName)
+                        putExtra(com.frogobox.appkeyboard.ui.secure.DecryptResultActivity.EXTRA_PLAINTEXT, plaintext)
+                        addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    startActivity(intent)
+                }.onFailure { e ->
+                    Log.e("KeyboardIME", "Decrypt failed: input length=${ciphertext.length}, error=${e.message}")
+                    val intent = android.content.Intent(
+                        this@KeyboardIME,
+                        com.frogobox.appkeyboard.ui.secure.DecryptResultActivity::class.java
+                    ).apply {
+                        putExtra(com.frogobox.appkeyboard.ui.secure.DecryptResultActivity.EXTRA_ERROR,
+                            "Decrypt failed (${ciphertext.length} chars): ${e.message?.take(80)}")
+                        addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    startActivity(intent)
                 }
-                .create()
-            @Suppress("DEPRECATION")
-            dialog.window?.setType(WindowManager.LayoutParams.TYPE_INPUT_METHOD_DIALOG)
-            dialog.show()
-        } catch (e: Exception) {
-            // Fallback: copy to clipboard and toast
-            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            clipboard.setPrimaryClip(
-                android.content.ClipData.newPlainText("Decrypted Message", plaintext)
-            )
-            Toast.makeText(this, "Decrypted! Copied to clipboard.", Toast.LENGTH_LONG).show()
+            }
         }
     }
 
