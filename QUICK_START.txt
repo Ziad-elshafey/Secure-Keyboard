@@ -1,0 +1,97 @@
+# ⚡ Quick Reference - Build & Run
+
+## 🚀 Fastest Way to Build & Run
+
+**Just double-click:** `run.bat`
+
+That's it! The script will:
+- Build your app
+- Start the emulator
+- Install the APK
+- Notify you when done
+
+---
+
+## 📋 Other Options
+
+### Interactive Selection (Choose emulator)
+```
+Double-click: build_and_run.bat
+```
+
+### Command Line (Advanced users)
+```bash
+# Full interactive mode
+python build_and_run.py
+
+# With specific emulator
+python build_and_run.py -e Medium_Phone_API_35
+
+# Just build (skip emulator)
+python build_and_run.py --skip-emulator
+
+# Just install (emulator already running)
+python build_and_run.py --skip-build
+
+# Clean build (remove old files first)
+python build_and_run.py --clean
+```
+
+---
+
+## ⏱️ How Long Does It Take?
+
+- **First run:** 3-4 minutes (emulator boot + build)
+- **Subsequent runs:** 1-2 minutes
+- **Just build (no emulator):** 30-60 seconds
+
+---
+
+## ✓ What Gets Done Automatically
+
+1. Checks all required tools
+2. Lists emulators (if needed)
+3. Starts emulator
+4. Waits for emulator to boot
+5. Builds APK
+6. Installs app
+7. Reports success/failure
+
+---
+
+## 🛑 If Something Goes Wrong
+
+### Script hangs?
+- Press `Ctrl+C` to stop
+- Make sure emulator isn't already running
+
+### Python not found?
+- Install Python 3.6+ from python.org
+- Restart your computer
+
+### Gradle not found?
+- Make sure Android Studio is installed
+- Or install Android SDK
+
+### Build fails?
+- Check error message in console
+- Try with `--clean` flag: `python build_and_run.py --clean`
+
+---
+
+## 📚 Full Documentation
+
+See `BUILD_AND_RUN_README.md` and `AUTOMATION_SETUP.md`
+
+---
+
+## 💡 Pro Tips
+
+1. **Create a desktop shortcut** to `run.bat` for even faster access
+2. **Customize `run.bat`** to use your preferred emulator (edit line 8)
+3. **Run from IDE terminal** to see output in VS Code
+4. **Use `--skip-build`** if you just want to reinstall without recompiling
+
+---
+
+**Ready to build? Double-click `run.bat` now!** 🚀

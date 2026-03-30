@@ -43,6 +43,13 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class KeyboardIME : BaseKeyboardIME<KeyboardImeBinding>() {
 
+    companion object {
+        private const val SECURE_SESSION_PREFS = "secure_active_session"
+        private const val KEY_RECIPIENT_NAME = "recipient_name"
+        private const val KEY_SESSION_ID = "session_id"
+        private const val KEY_DECRYPT_FROM_CLIPBOARD = "decrypt_from_clipboard"
+    }
+
     @Inject
     lateinit var pref: PreferenceDelegates
 
@@ -484,9 +491,9 @@ class KeyboardIME : BaseKeyboardIME<KeyboardImeBinding>() {
             return
         }
 
-        val prefs = getSharedPreferences("secure_active_session", Context.MODE_PRIVATE)
-        val sessionId = prefs.getString("session_id", null)
-        val recipientName = prefs.getString("recipient_name", null)
+        val prefs = getSharedPreferences(SECURE_SESSION_PREFS, Context.MODE_PRIVATE)
+        val sessionId = prefs.getString(KEY_SESSION_ID, null)
+        val recipientName = prefs.getString(KEY_RECIPIENT_NAME, null)
 
         if (sessionId.isNullOrEmpty() || recipientName.isNullOrEmpty()) {
             openSecureSessionPanel()
@@ -548,12 +555,26 @@ class KeyboardIME : BaseKeyboardIME<KeyboardImeBinding>() {
             return
         }
 
-        val prefs = getSharedPreferences("secure_active_session", Context.MODE_PRIVATE)
-        val recipientName = prefs.getString("recipient_name", null)
+        val prefs = getSharedPreferences(SECURE_SESSION_PREFS, Context.MODE_PRIVATE)
+        val recipientName = prefs.getString(KEY_RECIPIENT_NAME, null)
+        val decryptFromClipboard = prefs.getBoolean(KEY_DECRYPT_FROM_CLIPBOARD, false)
 
         if (recipientName.isNullOrEmpty()) {
             openSecureSessionPanel()
             Toast.makeText(this, R.string.secure_no_session, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        if (decryptFromClipboard) {
+            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val clipText = clipboard.primaryClip?.getItemAt(0)?.text?.toString()?.trim()
+
+            if (clipText.isNullOrEmpty()) {
+                Toast.makeText(this, R.string.secure_clipboard_empty, Toast.LENGTH_SHORT).show()
+                return
+            }
+
+            performDecryption(clipText, recipientName)
             return
         }
 

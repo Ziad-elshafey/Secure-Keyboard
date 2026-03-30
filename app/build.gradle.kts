@@ -70,10 +70,11 @@ android {
 
         getByName("debug") {
             applicationIdSuffix = ".dev"
+            buildConfigField("String", "SECURE_API_URL", "\"http://10.0.2.2:8000/\"")
         }
 
         getByName("release") {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
 
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -83,9 +84,10 @@ android {
             // Generated Signed APK / AAB
             signingConfig = signingConfigs.getByName("release")
 
+            buildConfigField("String", "SECURE_API_URL", "\"https://your-production-server.com/\"")
+
             // Inject app name for release
             resValue("string", "app_name", ProjectSetting.NAME_APP)
-
 
             // Inject admob id for release
             resValue("string", "admob_app_id", AdmobValue.ADMOB_APP_ID)
@@ -101,8 +103,8 @@ android {
 
     lint {
         disable.add("PropertyEscape")
-        checkReleaseBuilds = false
-        abortOnError = false
+        checkReleaseBuilds = true
+        abortOnError = true
     }
 
     packaging {

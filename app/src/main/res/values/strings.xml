@@ -39,6 +39,7 @@
     <string name="secure_no_users_found">No users found matching \'%s\'</string>
     <string name="secure_found_user">Found: %s</string>
     <string name="secure_start_conv_with">Start conversation with %s</string>
+    <string name="secure_decrypt_clipboard_toggle">Decrypt from the latest clipboard text</string>
     <string name="secure_obfuscated_label">Obfuscated text</string>
     <string name="secure_login_required">Login required — tap Session to sign in</string>
     <string name="secure_no_session">No active session — tap Session to set one up</string>

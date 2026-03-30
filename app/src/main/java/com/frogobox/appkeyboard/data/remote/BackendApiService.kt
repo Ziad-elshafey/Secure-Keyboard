@@ -1,5 +1,6 @@
 package com.frogobox.appkeyboard.data.remote
 
+import com.frogobox.appkeyboard.BuildConfig
 import com.google.gson.annotations.SerializedName
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -27,11 +28,12 @@ interface BackendApiService {
     suspend fun healthCheck(): Response<HealthResponse>
     
     companion object {
-        private const val BASE_URL = "http://10.0.2.2:5000/" // Android emulator localhost
+        private val BASE_URL = BuildConfig.SECURE_API_URL
         
         fun create(): BackendApiService {
             val loggingInterceptor = HttpLoggingInterceptor().apply {
-                level = HttpLoggingInterceptor.Level.BODY
+                level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY
+                        else HttpLoggingInterceptor.Level.NONE
             }
             
             val client = OkHttpClient.Builder()

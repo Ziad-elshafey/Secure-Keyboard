@@ -15,8 +15,10 @@ import com.frogobox.appkeyboard.di.SecureKeyboardEntryPoint
 import com.frogobox.appkeyboard.ui.secure.SecureAuthActivity
 import com.frogobox.libkeyboard.common.core.BaseKeyboard
 import dagger.hilt.android.EntryPointAccessors
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -42,19 +44,22 @@ class SecureMessagingKeyboard(
         private const val PREFS_NAME = "secure_active_session"
         private const val KEY_SESSION_ID = "session_id"
         private const val KEY_RECIPIENT_NAME = "recipient_name"
+        private const val KEY_DECRYPT_FROM_CLIPBOARD = "decrypt_from_clipboard"
     }
 
+    @Volatile
     private var _repo: SecureMessagingRepository? = null
     private val repo: SecureMessagingRepository
         get() {
-            if (_repo == null) {
-                _repo = EntryPointAccessors.fromApplication(
+            return _repo ?: synchronized(this) {
+                _repo ?: EntryPointAccessors.fromApplication(
                     context.applicationContext,
                     SecureKeyboardEntryPoint::class.java
-                ).secureMessagingRepository()
+                ).secureMessagingRepository().also { _repo = it }
             }
-            return _repo!!
         }
+
+    private var viewScope: CoroutineScope? = null
 
     private var selectedRecipientId: String? = null
     private var selectedRecipientName: String? = null
@@ -67,6 +72,16 @@ class SecureMessagingKeyboard(
             .putString(KEY_RECIPIENT_NAME, recipientName)
             .apply()
     }
+
+    private fun persistDecryptFromClipboard(enabled: Boolean) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+            .putBoolean(KEY_DECRYPT_FROM_CLIPBOARD, enabled)
+            .apply()
+    }
+
+    private fun loadDecryptFromClipboard(): Boolean =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(KEY_DECRYPT_FROM_CLIPBOARD, false)
 
     private fun clearPersistedSession() {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().clear().apply()
@@ -85,12 +100,19 @@ class SecureMessagingKeyboard(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
+        viewScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
         if (uiInitialized) return
         uiInitialized = true
 
         setupLoginState()
         setupSessionMgmtState()
         refreshAuthState()
+    }
+
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        viewScope?.cancel()
+        viewScope = null
     }
 
     override fun onVisibilityChanged(changedView: View, visibility: Int) {
@@ -139,9 +161,11 @@ class SecureMessagingKeyboard(
         }
 
         binding.btnLogout.setOnClickListener {
-            repo.logout()
-            resetComposeState()
-            showState(STATE_NOT_LOGGED_IN)
+            viewScope?.launch {
+                repo.logout()
+                resetComposeState()
+                showState(STATE_NOT_LOGGED_IN)
+            }
         }
     }
 
@@ -176,6 +200,11 @@ class SecureMessagingKeyboard(
     // ═══════════════════════════════════════════════════════════
 
     private fun setupSessionMgmtState() {
+        binding.cbDecryptClipboard.isChecked = loadDecryptFromClipboard()
+        binding.cbDecryptClipboard.setOnCheckedChangeListener { _, isChecked ->
+            persistDecryptFromClipboard(isChecked)
+        }
+
         binding.btnSearch.setOnClickListener { searchUser() }
         binding.btnStartConversation.setOnClickListener { startConversation() }
 
@@ -209,7 +238,7 @@ class SecureMessagingKeyboard(
         binding.tvSearchResult.text = context.getString(R.string.secure_searching)
         binding.btnStartConversation.visibility = View.GONE
 
-        GlobalScope.launch(Dispatchers.IO) {
+        viewScope?.launch(Dispatchers.IO) {
             val result = repo.searchUsers(query)
             withContext(Dispatchers.Main) {
                 setSearchLoading(false)
@@ -249,7 +278,7 @@ class SecureMessagingKeyboard(
         binding.btnStartConversation.isEnabled = false
         binding.tvSearchResult.text = context.getString(R.string.secure_session_creating)
 
-        GlobalScope.launch(Dispatchers.IO) {
+        viewScope?.launch(Dispatchers.IO) {
             val result = repo.createSession(recipientName, recipientId)
             withContext(Dispatchers.Main) {
                 binding.btnStartConversation.isEnabled = true

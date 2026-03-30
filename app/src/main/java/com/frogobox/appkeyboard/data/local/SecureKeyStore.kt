@@ -3,8 +3,6 @@ package com.frogobox.appkeyboard.data.local
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Base64
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
 import com.frogobox.appkeyboard.core.e2ee.IdentityKeyPair
 import com.frogobox.appkeyboard.core.e2ee.SignedPreKey
 
@@ -12,27 +10,18 @@ import com.frogobox.appkeyboard.core.e2ee.SignedPreKey
  * Persistent, encrypted storage for E2EE key material.
  *
  * Stores:
- *  • Ed25519 identity key pair (long-term, one per user)
- *  • X25519 signed pre-key pair (rotated periodically)
- *  • Per-session shared secrets (derived from X3DH)
- *  • Per-session ephemeral public keys (for first message exchange)
+ *  - Ed25519 identity key pair (long-term, one per user)
+ *  - X25519 signed pre-key pair (rotated periodically)
+ *  - Per-session shared secrets (derived from X3DH)
+ *  - Per-session ephemeral public keys (for first message exchange)
  *
- * Everything is encrypted at rest via [EncryptedSharedPreferences]
+ * Everything is encrypted at rest via [EncryptedPrefsFactory]
  * backed by Android Keystore AES-256-GCM.
  */
 class SecureKeyStore(context: Context) {
 
     private val prefs: SharedPreferences by lazy {
-        val masterKey = MasterKey.Builder(context.applicationContext)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
-        EncryptedSharedPreferences.create(
-            context.applicationContext,
-            PREFS_FILE,
-            masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-        )
+        EncryptedPrefsFactory.create(context.applicationContext, PREFS_FILE)
     }
 
     // ════════════════════════════════════════════════════════════
@@ -40,11 +29,11 @@ class SecureKeyStore(context: Context) {
     // ════════════════════════════════════════════════════════════
 
     fun setActiveUser(userId: String) {
-        prefs.edit().putString(KEY_ACTIVE_USER_ID, userId).apply()
+        prefs.edit().putString(KEY_ACTIVE_USER_ID, userId).commitOrThrow()
     }
 
     fun clearActiveUser() {
-        prefs.edit().remove(KEY_ACTIVE_USER_ID).apply()
+        prefs.edit().remove(KEY_ACTIVE_USER_ID).commitOrThrow()
     }
 
     fun hasActiveUser(): Boolean = prefs.contains(KEY_ACTIVE_USER_ID)
@@ -68,7 +57,7 @@ class SecureKeyStore(context: Context) {
         prefs.edit()
             .putString(scopedKey(KEY_IDENTITY_PRIVATE), encode(keyPair.privateKey))
             .putString(scopedKey(KEY_IDENTITY_PUBLIC), encode(keyPair.publicKey))
-            .apply()
+            .commitOrThrow()
     }
 
     fun getIdentityKeyPair(): IdentityKeyPair? {
@@ -90,7 +79,7 @@ class SecureKeyStore(context: Context) {
             .putString(scopedKey(KEY_SPK_PRIVATE), encode(preKey.privateKey))
             .putString(scopedKey(KEY_SPK_PUBLIC), encode(preKey.publicKey))
             .putString(scopedKey(KEY_SPK_SIGNATURE), encode(preKey.signature))
-            .apply()
+            .commitOrThrow()
     }
 
     fun getSignedPreKey(): SignedPreKey? {
@@ -115,7 +104,7 @@ class SecureKeyStore(context: Context) {
     fun saveSharedSecret(sessionId: String, secret: ByteArray) {
         prefs.edit()
             .putString(scopedSessionKey(PREFIX_SHARED_SECRET, sessionId), encode(secret))
-            .apply()
+            .commitOrThrow()
     }
 
     fun getSharedSecret(sessionId: String): ByteArray? =
@@ -127,7 +116,7 @@ class SecureKeyStore(context: Context) {
     fun removeSharedSecret(sessionId: String) {
         prefs.edit()
             .remove(scopedSessionKey(PREFIX_SHARED_SECRET, sessionId))
-            .apply()
+            .commitOrThrow()
     }
 
     // ════════════════════════════════════════════════════════════
@@ -137,7 +126,7 @@ class SecureKeyStore(context: Context) {
     fun saveEphemeralPublicKey(sessionId: String, key: ByteArray) {
         prefs.edit()
             .putString(scopedSessionKey(PREFIX_EPHEMERAL_KEY, sessionId), encode(key))
-            .apply()
+            .commitOrThrow()
     }
 
     fun getEphemeralPublicKey(sessionId: String): ByteArray? =
@@ -146,7 +135,7 @@ class SecureKeyStore(context: Context) {
     fun removeEphemeralPublicKey(sessionId: String) {
         prefs.edit()
             .remove(scopedSessionKey(PREFIX_EPHEMERAL_KEY, sessionId))
-            .apply()
+            .commitOrThrow()
     }
 
     /**
@@ -164,46 +153,48 @@ class SecureKeyStore(context: Context) {
 
         val editor = prefs.edit()
         keysToRemove.forEach(editor::remove)
-        editor.apply()
+        editor.commitOrThrow()
     }
 
     // ════════════════════════════════════════════════════════════
     //  Cleanup
     // ════════════════════════════════════════════════════════════
 
-    /** Wipe everything — identity keys, prekeys, all shared secrets. */
     fun clearAll() {
-        prefs.edit().clear().apply()
+        prefs.edit().clear().commitOrThrow()
     }
 
     // ════════════════════════════════════════════════════════════
-    //  Base64 helpers
+    //  Internal helpers
     // ════════════════════════════════════════════════════════════
 
     private fun encode(data: ByteArray): String =
         Base64.encodeToString(data, Base64.NO_WRAP)
 
-    private fun decode(encoded: String): ByteArray =
-        Base64.decode(encoded, Base64.NO_WRAP)
+    private fun decode(encoded: String): ByteArray? =
+        try {
+            Base64.decode(encoded, Base64.NO_WRAP)
+        } catch (_: IllegalArgumentException) {
+            null
+        }
+
+    private fun SharedPreferences.Editor.commitOrThrow() {
+        check(commit()) { "Failed to persist secure key store data" }
+    }
 
     companion object {
         private const val PREFS_FILE = "secure_key_store"
         private const val KEY_ACTIVE_USER_ID = "active_user_id"
 
-        // Identity key pair
         private const val KEY_IDENTITY_PRIVATE = "identity_private"
         private const val KEY_IDENTITY_PUBLIC = "identity_public"
 
-        // Signed pre-key
         private const val KEY_SPK_ID = "spk_id"
         private const val KEY_SPK_PRIVATE = "spk_private"
         private const val KEY_SPK_PUBLIC = "spk_public"
         private const val KEY_SPK_SIGNATURE = "spk_signature"
 
-        // Shared secrets (keyed by session ID)
         private const val PREFIX_SHARED_SECRET = "shared_secret_"
-
-        // Ephemeral public keys (keyed by session ID, for first message)
         private const val PREFIX_EPHEMERAL_KEY = "ephemeral_key_"
     }
 }

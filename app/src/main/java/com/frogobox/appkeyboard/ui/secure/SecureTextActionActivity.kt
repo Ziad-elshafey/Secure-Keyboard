@@ -4,11 +4,11 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import com.frogobox.appkeyboard.data.repository.SecureMessagingRepository
 import com.frogobox.appkeyboard.databinding.ActivitySecureTextActionBinding
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -48,6 +48,7 @@ class SecureTextActionActivity : AppCompatActivity() {
 
         // Read the selected text from the intent
         selectedText = intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString() ?: ""
+        if (selectedText.length > 50_000) { finish(); return }
         isReadOnly = intent.getBooleanExtra(Intent.EXTRA_PROCESS_TEXT_READONLY, false)
 
         // Determine mode from the component name (activity-alias label)
@@ -98,7 +99,7 @@ class SecureTextActionActivity : AppCompatActivity() {
         binding.tvStatus.text = "⏳ Encrypting for $recipientUsername..."
         binding.tvStatus.setTextColor(getColor(com.frogobox.appkeyboard.R.color.secure_text_secondary))
 
-        GlobalScope.launch(Dispatchers.IO) {
+        lifecycleScope.launch(Dispatchers.IO) {
             val result = repo.sendMessage(sessionId, recipientUsername, selectedText)
 
             withContext(Dispatchers.Main) {
@@ -143,7 +144,7 @@ class SecureTextActionActivity : AppCompatActivity() {
         binding.tvStatus.text = "Decrypting from $senderUsername..."
         binding.tvStatus.setTextColor(getColor(com.frogobox.appkeyboard.R.color.secure_text_secondary))
 
-        GlobalScope.launch(Dispatchers.IO) {
+        lifecycleScope.launch(Dispatchers.IO) {
             val result = repo.decryptMessage(selectedText, senderUsername)
 
             withContext(Dispatchers.Main) {
@@ -221,7 +222,7 @@ class SecureTextActionActivity : AppCompatActivity() {
     }
 
     private fun doEncrypt(recipientUsername: String) {
-        GlobalScope.launch(Dispatchers.IO) {
+        lifecycleScope.launch(Dispatchers.IO) {
             // Find session with this recipient
             val sessionResult = findSessionForPeer(recipientUsername)
 
@@ -262,7 +263,7 @@ class SecureTextActionActivity : AppCompatActivity() {
     }
 
     private fun doDecrypt(senderUsername: String) {
-        GlobalScope.launch(Dispatchers.IO) {
+        lifecycleScope.launch(Dispatchers.IO) {
             val result = repo.decryptMessage(selectedText, senderUsername)
 
             withContext(Dispatchers.Main) {
@@ -301,7 +302,7 @@ class SecureTextActionActivity : AppCompatActivity() {
 
     private fun copyToClipboard(text: String) {
         val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
-        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Encrypted", text))
+        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Text", text))
     }
 
     private fun simplifyError(e: Throwable): String {

@@ -27,6 +27,9 @@ interface SecureApiService {
     @POST("api/auth/refresh")
     suspend fun refreshToken(@Body request: RefreshTokenRequest): TokenResponse
 
+    @POST("api/auth/logout")
+    suspend fun logout()
+
     // ════════════════════════════════════════════════════════════
     //  Users (token required)
     // ════════════════════════════════════════════════════════════

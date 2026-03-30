@@ -60,3 +60,16 @@ data class EncryptedMessage(
     }
     override fun hashCode(): Int = 31 * ciphertext.contentHashCode() + nonce.contentHashCode()
 }
+
+/**
+ * Unpacked wire envelope. If [nonce] is non-null the payload was sent with
+ * authenticated encryption (SM1 format); otherwise it is a legacy
+ * bare-ChaCha20 payload.
+ */
+data class PackedMessageEnvelope(
+    val ciphertext: ByteArray,
+    val counter: Int,
+    val nonce: ByteArray?
+) {
+    val usesAead: Boolean get() = nonce != null
+}

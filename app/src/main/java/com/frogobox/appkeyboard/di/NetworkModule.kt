@@ -8,6 +8,7 @@ import com.frogobox.appkeyboard.data.remote.SecureApiService
 import com.frogobox.appkeyboard.data.remote.StegoDecodeApiService
 import com.frogobox.appkeyboard.data.remote.StegoEncodeApiService
 import com.frogobox.appkeyboard.data.remote.TokenRefreshAuthenticator
+import com.frogobox.appkeyboard.BuildConfig
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -25,12 +26,6 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
 
-    /**
-     * Base URL for the Secure-Application FastAPI server.
-     * - Emulator: 10.0.2.2 maps to host machine's localhost
-     * - Physical device: replace with your machine's LAN IP
-     */
-    private const val SECURE_API_BASE_URL = "http://10.0.2.2:8000/"
     private const val STEGO_ENCODE_BASE_URL = "https://modalcd--encode.modal.run/"
     private const val STEGO_DECODE_BASE_URL = "https://modalcd--decode.modal.run/"
 
@@ -53,10 +48,10 @@ object NetworkModule {
         tokenManager: AuthTokenManager
     ): OkHttpClient {
         val logging = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.HEADERS
+            level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.HEADERS
+                    else HttpLoggingInterceptor.Level.NONE
         }
 
-        // Minimal OkHttp client for refresh calls only (no auth interceptor → no loop)
         val refreshClient = OkHttpClient.Builder()
             .addInterceptor(logging)
             .connectTimeout(10, TimeUnit.SECONDS)
@@ -64,7 +59,7 @@ object NetworkModule {
             .build()
 
         val refreshRetrofit = Retrofit.Builder()
-            .baseUrl(SECURE_API_BASE_URL)
+            .baseUrl(BuildConfig.SECURE_API_URL)
             .client(refreshClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
@@ -87,7 +82,7 @@ object NetworkModule {
     @Singleton
     fun provideSecureApiService(okHttpClient: OkHttpClient): SecureApiService =
         Retrofit.Builder()
-            .baseUrl(SECURE_API_BASE_URL)
+            .baseUrl(BuildConfig.SECURE_API_URL)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
@@ -102,7 +97,8 @@ object NetworkModule {
     @Named("stegoClient")
     fun provideStegoOkHttpClient(): OkHttpClient {
         val logging = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.HEADERS
+            level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.HEADERS
+                    else HttpLoggingInterceptor.Level.NONE
         }
 
         return OkHttpClient.Builder()

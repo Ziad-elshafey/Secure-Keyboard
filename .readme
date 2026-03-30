@@ -1,0 +1,191 @@
+# Technical overview — Keyboard / secure messaging monorepo
+
+This document is the **engineering-facing** companion to the user-oriented [`README.md`](README.md). It describes how the pieces fit together, how to build and run them, and where security-sensitive behavior lives.
+
+---
+
+## 1. Purpose
+
+The repository combines:
+
+- A **custom Android IME** (Frogo Keyboard) used for research, with themes, emoji, API hooks, and an optional **secure messaging** flow backed by a dedicated API.
+- A **FlorisBoard-derived fork** (`Secure-Keyboard-v2/`) that carries an alternate implementation of the same secure-messaging stack (shared ideas, separate Gradle project).
+- A **FastAPI backend** (`Secure-application/Server/`) for accounts, pre-keys/sessions, JWT auth, and steganography-assisted obfuscation of ciphertext in transit.
+
+---
+
+## 2. Repository layout
+
+| Path | Role |
+|------|------|
+| [`app/`](app/) | Main Android application module (`:app`). Package root: `com.frogobox.appkeyboard`. |
+| [`frogo-keyboard/`](frogo-keyboard/) | Reusable keyboard UI library (`:frogo-keyboard`). Published-style module; `namespace`: `com.frogobox.libkeyboard`. |
+| [`buildSrc/`](buildSrc/) | Shared Gradle constants (`ProjectSetting`, signing placeholders). |
+| [`Secure-Keyboard-v2/`](Secure-Keyboard-v2/) | Standalone **FlorisBoard** project (own `settings.gradle.kts`). Secure messaging code under e.g. `dev.patrickgold.florisboard.secure.*`. |
+| [`Secure-application/Server/`](Secure-application/Server/) | Python **FastAPI** service + SQLAlchemy models, auth middleware, obfuscation routes. |
+| [`docs/`](docs/) | Images, screenshots, and ancillary markdown. |
+| [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md) | Deep security audit, remediation checklist, and **remaining open items** (protocol, A11y, rate limits, pinning, compression). |
+| [`SECURITY.md`](SECURITY.md) | Generic security policy template (version table / reporting). |
+
+Gradle includes only `:app` and `:frogo-keyboard` from the **root** [`settings.gradle.kts`](settings.gradle.kts). Open `Secure-Keyboard-v2/` as its own root in Android Studio when working on that fork.
+
+---
+
+## 3. Android stack (`app/` + `frogo-keyboard/`)
+
+### 3.1 Tooling versions (indicative)
+
+Defined in [`gradle/libs.versions.toml`](gradle/libs.versions.toml):
+
+- Android Gradle Plugin **8.13.x**, Kotlin **2.2.x**, KSP aligned with Kotlin.
+- Min SDK **24**, compile/target SDK **36** ([`ProjectSetting.kt`](buildSrc/src/main/kotlin/ProjectSetting.kt)).
+- DI: **Hilt**; DB: **Room**; HTTP: **Retrofit** + **OkHttp**; crypto: **Tink**, **AndroidX Security Crypto**, **BouncyCastle** (see version catalog).
+
+### 3.2 Application identity & versioning
+
+- Application ID pattern: `com.frogobox.frogokeyboard` (from `ProjectSetting`).
+- Debug builds use `applicationIdSuffix = ".dev"` and a distinct `app_name` resource.
+- `versionCode` / `versionName` are derived from `VERSION_MAJOR|MINOR|PATCH` in `ProjectSetting`.
+
+### 3.3 Build configuration highlights
+
+[`app/build.gradle.kts`](app/build.gradle.kts):
+
+- **`BuildConfig.SECURE_API_URL`** — base URL for the secure messaging API.
+  - **debug**: `http://10.0.2.2:8000/` (emulator → host loopback).
+  - **release**: must be set to your **HTTPS** production host (placeholder in repo).
+- **`BuildConfig.DATABASE_NAME` / `PREF_NAME`** — injected from `ProjectSetting`.
+- **Release**: R8 minify enabled; ProGuard rules in [`app/proguard-rules.pro`](app/proguard-rules.pro).
+- **Signing**: release builds reference [`ProjectSign`](buildSrc/src/main/kotlin/ProjectSign.kt) (keystore path under `app/keystore/`). **Replace** store credentials and the keystore file for anything beyond local testing; do not ship production with example credentials.
+
+### 3.4 Network & cleartext policy
+
+- Split **network security config**: production constraints under [`app/src/main/res/xml/network_security_config.xml`](app/src/main/res/xml/network_security_config.xml); debug may allow cleartext to local dev server under [`app/src/debug/res/xml/network_security_config.xml`](app/src/debug/res/xml/network_security_config.xml).
+- Sensitive logging (HTTP bodies, Chucker, etc.) should remain **DEBUG-only**; release paths favor minimal or no logging.
+
+### 3.5 Secure messaging (client, high level)
+
+Important areas under `app/src/main/java/com/frogobox/appkeyboard/`:
+
+| Area | Typical files / packages |
+|------|---------------------------|
+| E2EE primitives & envelopes | `core/e2ee/` (`E2EEService`, envelope models) |
+| API & tokens | `data/remote/` (`SecureApiService`, `TokenRefreshAuthenticator`, `NetworkModule`) |
+| Local secrets & prefs | `data/local/` (`EncryptedPrefsFactory`, `AuthTokenManager`, `SecureKeyStore`) |
+| Repository orchestration | `data/repository/SecureMessagingRepository.kt` |
+| IME & UI | `services/KeyboardIME.kt`, `ui/keyboard/securemessaging/`, `ui/secure/` |
+| Decrypt assist | `services/DecryptAccessibilityService.kt`, `core/DecryptCaptureState.kt` |
+
+Behavioral notes (post-remediation):
+
+- Token refresh is synchronized and time-bounded; failed refresh clears client tokens appropriately.
+- Messaging uses **authenticated** ChaCha20-Poly1305 envelopes (with counter in AAD) where applicable, with a **legacy** decrypt path for older payloads.
+- **Compression** on the hot path is **disabled** for safety; related code may remain for compatibility.
+- Critical `SharedPreferences` writes use **commit** semantics where material must be durable before proceeding.
+
+### 3.6 Backup & data extraction
+
+[`backup_rules.xml`](app/src/main/res/xml/backup_rules.xml) and [`data_extraction_rules.xml`](app/src/main/res/xml/data_extraction_rules.xml) exclude encrypted preference stores and active session keys from cloud backup / transfer.
+
+---
+
+## 4. Secure-Keyboard-v2 (FlorisBoard fork)
+
+- **Independent Gradle project** (`rootProject.name = "FlorisBoard"`).
+- Carries parallel secure-messaging repository and networking patterns; remediation items were aligned with `app/` where applicable (e.g. compression disabled on production paths).
+- Use this tree when testing or extending the **FlorisBoard** codebase; it does not participate in the root `:app` composite build.
+
+---
+
+## 5. Backend (`Secure-application/Server/`)
+
+### 5.1 Stack
+
+- **FastAPI** + **Uvicorn**, **Pydantic v2** settings.
+- **SQLAlchemy 2.x**; **PostgreSQL** in production configuration; SQLite supported with connection pool mode appropriate to the driver.
+- **JWT** access/refresh (PyJWT / python-jose), **passlib** for password hashing.
+- Optional **steganography** HTTP integration (`httpx`) with configurable timeout and base64 fallback flag.
+
+### 5.2 Configuration
+
+Settings load from environment and optional **`.env`** next to [`config.py`](Secure-application/Server/config.py) (`ENV_FILE_PATH`).
+
+**Required / security-critical variables** (no insecure defaults at startup — see [`main.py`](Secure-application/Server/main.py) startup checks):
+
+| Variable | Role |
+|----------|------|
+| `SECRET_KEY` | JWT signing; must not be placeholder in production. |
+| `SEED_ENCRYPTION_KEY` | Protects stored key material server-side. |
+| `XOR_KEY` | Obfuscation layer key; validated at startup. |
+| `DATABASE_URL` | e.g. `postgresql://...` |
+| `ALLOWED_ORIGINS` | CORS allowlist (empty list is fail-closed for browser clients). |
+
+Optional / operational: `SERVER_HOST`, `SERVER_PORT`, `DEBUG`, `ACCESS_TOKEN_EXPIRE_MINUTES`, `REFRESH_TOKEN_EXPIRE_DAYS`, stego URLs, `STEGO_TIMEOUT`, `FORCE_BASE64_FALLBACK`, `OBFUSCATION_VERSION`.
+
+### 5.3 Run locally
+
+```bash
+cd Secure-application/Server
+python -m venv .venv
+.venv\Scripts\activate   # Windows
+pip install -r requirements.txt
+# Create .env with the variables above
+uvicorn main:app --host 0.0.0.0 --port 8000
+```
+
+Interactive docs: `http://localhost:8000/docs` (when `debug` allows).
+
+Routers are mounted in `main.py`: **auth**, **users**, **keys**, **sessions**, **obfuscation**. Health: `/api/health` and legacy `/health`.
+
+---
+
+## 6. End-to-end dev workflow
+
+1. **Database**: Provision PostgreSQL (or use SQLite for limited local experiments per `database.py` / pool selection).
+2. **Server**: Configure `.env`, start Uvicorn on port **8000** (or adjust and point the app at the same port).
+3. **Emulator**: Use debug build so `SECURE_API_URL` hits `10.0.2.2:8000`.
+4. **Device**: Use `adb reverse` or a LAN-accessible HTTPS endpoint with a matching **release** `SECURE_API_URL` and proper network security / pinning strategy (pinning still listed as open in `SECURITY_REVIEW.md`).
+
+### 6.1 Troubleshooting: “Failed to load sessions” / “Failed to connect to /10.0.2.2:8000”
+
+Debug builds use [`BuildConfig.SECURE_API_URL`](app/build.gradle.kts) → `http://10.0.2.2:8000/`. **`10.0.2.2` is only valid on the Android Emulator** (it maps to the host machine’s loopback). The `/` before the IP in the error string is normal; the real problem is “nothing accepted the connection.”
+
+| Situation | What to do |
+|-----------|------------|
+| **Emulator** | Start the API first (`python main.py` or `uvicorn` on port **8000**). Confirm `SERVER_HOST` is **`0.0.0.0`** in `.env` (not `127.0.0.1` only). On Windows, allow **Python** (or port 8000) through the firewall if the host browser can open `http://127.0.0.1:8000/api/health` but the emulator still fails. |
+| **Physical phone / USB** | `10.0.2.2` will **not** reach your PC. Either run `adb reverse tcp:8000 tcp:8000` (then the app can keep using `127.0.0.1` only if you change the URL—usually easier to set debug `SECURE_API_URL` to `http://<your-PC-LAN-IP>:8000/` and add that host under [`app/src/debug/res/xml/network_security_config.xml`](app/src/debug/res/xml/network_security_config.xml)), or use the same LAN URL without reverse. |
+| **Wrong build** | **Release** builds point at the placeholder production URL in `build.gradle.kts`, not `10.0.2.2`. Use a **debug** build for local dev. |
+| **Port mismatch** | If the server runs on another port, update `SECURE_API_URL` (trailing slash required for Retrofit base URL conventions). |
+
+Quick host check: open `http://127.0.0.1:8000/api/health` in a desktop browser while the server is running.
+
+---
+
+## 7. Testing & quality gates
+
+- Android instrumented runner: `AndroidJUnitRunner` (module defaults).
+- Server: **pytest** + **httpx** in [`requirements.txt`](Secure-application/Server/requirements.txt).
+- Upstream project badges (Detekt, CI) are described in [`README.md`](README.md); run `./gradlew lint assembleDebug` before merging significant UI or IME changes.
+
+---
+
+## 8. Security documentation & threat model
+
+- **Authoritative audit trail**: [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md) — original findings, **completed** remediation bullets (as of March 2026), and **explicit remaining work** (full X3DH/ratchet, systematic `AccessibilityNodeInfo` recycling, auth rate limiting, certificate pinning, compression module rework).
+- **Policy**: [`SECURITY.md`](SECURITY.md) — update supported versions and contact paths for your fork.
+
+Treat this stack as **research-grade** until open protocol and hardening items are closed for your deployment target.
+
+---
+
+## 9. Related documentation
+
+- User features, JitPack library usage, and screenshots: [`README.md`](README.md).
+- Backend folder notes (if present): [`backend/README.md`](backend/README.md).
+- Image assets: [`docs/image/ss/README.md`](docs/image/ss/README.md).
+
+---
+
+## 10. License & attribution
+
+Frogo Keyboard modules retain **Frogobox / amirisback** attribution in `buildSrc` and sources. `Secure-Keyboard-v2` carries **FlorisBoard** Apache-2.0 headers. Respect each subtree’s license when redistributing.

@@ -2,12 +2,12 @@ package com.frogobox.appkeyboard.ui.secure
 
 import android.os.Bundle
 import android.view.View
+import androidx.lifecycle.lifecycleScope
 import com.frogobox.appkeyboard.common.base.BaseActivity
 import com.frogobox.appkeyboard.data.repository.SecureMessagingRepository
 import com.frogobox.appkeyboard.databinding.ActivitySecureAuthBinding
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -38,15 +38,17 @@ class SecureAuthActivity : BaseActivity<ActivitySecureAuthBinding>() {
         binding.btnLogin.setOnClickListener { doAuth(isRegister = false) }
         binding.btnRegister.setOnClickListener { doAuth(isRegister = true) }
         binding.btnLogout.setOnClickListener {
-            repo.logout()
-            refreshUI()
-            binding.tvStatus.text = "Logged out"
+            lifecycleScope.launch {
+                repo.logout()
+                refreshUI()
+                binding.tvStatus.text = "Logged out"
+            }
         }
     }
 
     private fun doAuth(isRegister: Boolean) {
         val username = binding.etUsername.text.toString().trim()
-        val password = binding.etPassword.text.toString().trim()
+        val password = binding.etPassword.text.toString()
 
         if (username.isEmpty() || password.isEmpty()) {
             binding.tvStatus.text = "Please enter both username and password"
@@ -57,23 +59,23 @@ class SecureAuthActivity : BaseActivity<ActivitySecureAuthBinding>() {
         binding.tvStatus.text = "⏳ $label..."
         setButtonsEnabled(false)
 
-        GlobalScope.launch(Dispatchers.IO) {
-            val result = if (isRegister) {
-                repo.register(username, password)
-            } else {
-                repo.login(username, password)
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                if (isRegister) {
+                    repo.register(username, password)
+                } else {
+                    repo.login(username, password)
+                }
             }
 
-            withContext(Dispatchers.Main) {
-                setButtonsEnabled(true)
-                result.onSuccess {
-                    binding.tvStatus.text = "✅ Success!"
-                    binding.etUsername.text?.clear()
-                    binding.etPassword.text?.clear()
-                    refreshUI()
-                }.onFailure { e ->
-                    binding.tvStatus.text = "❌ ${simplifyError(e)}"
-                }
+            setButtonsEnabled(true)
+            result.onSuccess {
+                binding.tvStatus.text = "✅ Success!"
+                binding.etUsername.text?.clear()
+                binding.etPassword.text?.clear()
+                refreshUI()
+            }.onFailure { e ->
+                binding.tvStatus.text = "❌ ${simplifyError(e)}"
             }
         }
     }
@@ -82,6 +84,7 @@ class SecureAuthActivity : BaseActivity<ActivitySecureAuthBinding>() {
         if (repo.isLoggedIn()) {
             binding.cardLoggedIn.visibility = View.VISIBLE
             binding.tvLoggedInUser.text = repo.getUsername() ?: "—"
+            binding.etPassword.text?.clear()
             binding.btnLogin.isEnabled = false
             binding.btnRegister.isEnabled = false
             binding.etUsername.isEnabled = false

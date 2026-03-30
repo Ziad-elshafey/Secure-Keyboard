@@ -1,6 +1,7 @@
 package com.frogobox.appkeyboard.data.remote
 
 import android.content.Context
+import com.frogobox.appkeyboard.BuildConfig
 import com.chuckerteam.chucker.api.ChuckerCollector
 import com.chuckerteam.chucker.api.ChuckerInterceptor
 import com.chuckerteam.chucker.api.RetentionManager
@@ -28,7 +29,8 @@ object ApiService {
     inline fun <reified T> create(context: Context, baseUrl: String): T {
 
         val httpLoggingInterceptor = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY
+                    else HttpLoggingInterceptor.Level.NONE
         }
 
         // Create the Collector
@@ -44,12 +46,14 @@ object ApiService {
             .collector(chuckerCollector)
             .build()
 
-        val client = OkHttpClient.Builder()
+        val clientBuilder = OkHttpClient.Builder()
             .readTimeout(30, TimeUnit.SECONDS)
             .connectTimeout(30, TimeUnit.SECONDS)
             .addInterceptor(httpLoggingInterceptor)
-            .addInterceptor(chuckInterceptor)
-            .build()
+        if (BuildConfig.DEBUG) {
+            clientBuilder.addInterceptor(chuckInterceptor)
+        }
+        val client = clientBuilder.build()
 
         return Retrofit.Builder()
             .baseUrl(baseUrl)

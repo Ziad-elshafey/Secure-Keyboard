@@ -219,6 +219,16 @@
                     android:visibility="gone"
                     android:layout_marginTop="6dp" />
 
+                <CheckBox
+                    android:id="@+id/cb_decrypt_clipboard"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/secure_decrypt_clipboard_toggle"
+                    android:textColor="@color/secure_text_primary"
+                    android:textSize="12sp"
+                    android:buttonTint="@color/secure_accent" />
+
             </LinearLayout>
         </ScrollView>
 
